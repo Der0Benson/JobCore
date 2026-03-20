@@ -1,0 +1,80 @@
+xp-formula:
+  base: 100
+  per-level: 50
+
+anti-farm:
+  window-seconds: 5
+  radius: 8.0
+  threshold: 25
+  multiplier: 0.5
+
+combo:
+  session-seconds: 20
+  minimum-logs: 4
+  bonus-xp-per-log: 2
+  scan-limit: 128
+  required-leaves: 6
+
+bossbar:
+  inactivity-seconds: 10
+  title-template: "<green>%job% <gray>- Lv.<white>%level% <gray>- <white>%xp%/%needed%</white> <gray>(+%xpGained% XP)</gray>"
+
+menu:
+  overview-title: "Job-Auswahl"
+  path-title: "Levelpfad"
+  close-label: "<red>Schließen"
+  back-label: "<yellow>Zur Übersicht"
+  previous-page-label: "<gold>Vorherige Seite"
+  next-page-label: "<gold>Nächste Seite"
+
+jobs:
+  woodcutter:
+    display-name: "Holzfäller"
+    icon: "IRON_AXE"
+    bossbar-color: "GREEN"
+    xp-values:
+      OAK_LOG: 10
+      SPRUCE_LOG: 10
+      BIRCH_LOG: 10
+      JUNGLE_LOG: 11
+      ACACIA_LOG: 11
+      DARK_OAK_LOG: 12
+      MANGROVE_LOG: 13
+      CHERRY_LOG: 13
+      PALE_OAK_LOG: 14
+      CRIMSON_STEM: 12
+      WARPED_STEM: 12
+      BAMBOO_BLOCK: 9
+    perks:
+      - level: 10
+        type: XP_BOOST
+        value: 0.02
+        display: "<green>+2% Job-XP"
+      - level: 25
+        type: DOUBLE_DROP_CHANCE
+        value: 0.02
+        display: "<green>2% Chance auf doppelte Drops"
+      - level: 50
+        type: BONUS_DROP_CHANCE
+        value: 0.05
+        display: "<green>5% Chance auf Bonus-Drops"
+    bonus-drops:
+      - material: STICK
+        amount: 2
+        weight: 50
+      - material: APPLE
+        amount: 1
+        weight: 35
+      - material: MOSS_BLOCK
+        amount: 1
+        weight: 15
+
+messages:
+  prefix: "<gray>[<green>JobCore<gray>] "
+  no-permission: "<red>Du hast dafür keine Berechtigung."
+  player-only: "<red>Dieser Befehl ist nur im Spiel nutzbar."
+  reloaded: "<green>Konfiguration und Job-Werte wurden neu geladen."
+  unknown-subcommand: "<red>Unbekannter Subcommand. Nutze <white>/customjobs reload</white>, <white>/customjobs info</white> oder <white>/level</white>."
+  info-header: "<gray>Deine Job-Level:"
+  info-entry: "<gray>%job%: <white>Lv.%level%</white> <gray>- <white>%xp%/%needed%</white>"
+  console-info: "<gray>JobCore läuft in Version <white>%version%</white><gray>."

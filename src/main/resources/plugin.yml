@@ -1,0 +1,23 @@
+name: JobCore
+version: '${version}'
+main: de.deinname.customjobs.JobCore
+api-version: '1.21'
+author: deinname
+commands:
+  customjobs:
+    description: Hauptbefehl fuer JobCore.
+    usage: /customjobs [reload|info|level]
+    aliases: [cj]
+  level:
+    description: Öffnet den Levelpfad.
+    usage: /level
+permissions:
+  customjobs.admin:
+    description: Erlaubt Reload und administrative Infos.
+    default: op
+  customjobs.info:
+    description: Erlaubt das Anzeigen der Job-Infos.
+    default: true
+  customjobs.level:
+    description: Erlaubt das Oeffnen des Level-Menues.
+    default: true
