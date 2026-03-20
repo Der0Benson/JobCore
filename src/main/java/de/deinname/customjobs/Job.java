@@ -22,6 +22,7 @@ public enum Job {
                     new JobPerk(25, PerkType.DOUBLE_DROP_CHANCE, 0.02D, "<green>2% Chance auf doppelte Drops"),
                     new JobPerk(50, PerkType.BONUS_DROP_CHANCE, 0.05D, "<green>5% Chance auf Bonus-Drops")
             ),
+            createWoodcutterPathRewardDefaults(),
             List.of(
                     new BonusDropEntry(Material.STICK, 2, 50),
                     new BonusDropEntry(Material.APPLE, 1, 35),
@@ -35,6 +36,7 @@ public enum Job {
     private final BossBar.Color barColor;
     private final Map<Material, Integer> defaultXpValues;
     private final List<JobPerk> defaultPerks;
+    private final Map<Integer, List<PathReward>> defaultPathRewards;
     private final List<BonusDropEntry> defaultBonusDrops;
 
     Job(
@@ -44,6 +46,7 @@ public enum Job {
             final BossBar.Color barColor,
             final Map<Material, Integer> defaultXpValues,
             final List<JobPerk> defaultPerks,
+            final Map<Integer, List<PathReward>> defaultPathRewards,
             final List<BonusDropEntry> defaultBonusDrops
     ) {
         this.id = id;
@@ -52,6 +55,7 @@ public enum Job {
         this.barColor = barColor;
         this.defaultXpValues = Collections.unmodifiableMap(defaultXpValues);
         this.defaultPerks = List.copyOf(defaultPerks);
+        this.defaultPathRewards = copyRewardMap(defaultPathRewards);
         this.defaultBonusDrops = List.copyOf(defaultBonusDrops);
     }
 
@@ -85,7 +89,10 @@ public enum Job {
         return defaultPerks;
     }
 
-    
+    public Map<Integer, List<PathReward>> getDefaultPathRewards() {
+        return defaultPathRewards;
+    }
+
     public List<BonusDropEntry> getDefaultBonusDrops() {
         return defaultBonusDrops;
     }
@@ -120,5 +127,60 @@ public enum Job {
         values.put(Material.WARPED_STEM, 12);
         values.put(Material.BAMBOO_BLOCK, 9);
         return values;
+    }
+
+    private static Map<Integer, List<PathReward>> createWoodcutterPathRewardDefaults() {
+        return Map.of(
+                5, List.of(new PathReward(
+                        PathRewardType.MESSAGE,
+                        "<aqua>Willkommens-Belohnung",
+                        "<green>Du hast die ersten Stufen des Holzfäller-Pfads erreicht.",
+                        null,
+                        0
+                )),
+                15, List.of(new PathReward(
+                        PathRewardType.ITEM,
+                        "<green>8 Eichensetzlinge",
+                        "",
+                        Material.OAK_SAPLING,
+                        8
+                )),
+                30, List.of(new PathReward(
+                        PathRewardType.ITEM,
+                        "<green>16 Stöcke",
+                        "",
+                        Material.STICK,
+                        16
+                )),
+                50, List.of(new PathReward(
+                        PathRewardType.MESSAGE,
+                        "<gold>Meilenstein Level 50",
+                        "<gold>Du hast Level 50 als Holzfäller erreicht.",
+                        null,
+                        0
+                )),
+                75, List.of(new PathReward(
+                        PathRewardType.ITEM,
+                        "<green>4 Moosblöcke",
+                        "",
+                        Material.MOSS_BLOCK,
+                        4
+                )),
+                100, List.of(new PathReward(
+                        PathRewardType.MESSAGE,
+                        "<yellow>Holzfäller-Meister",
+                        "<yellow>Du hast den Holzfäller-Pfad auf Level 100 abgeschlossen.",
+                        null,
+                        0
+                ))
+        );
+    }
+
+    private static Map<Integer, List<PathReward>> copyRewardMap(final Map<Integer, List<PathReward>> input) {
+        return input.entrySet().stream()
+                .collect(java.util.stream.Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey,
+                        entry -> List.copyOf(entry.getValue())
+                ));
     }
 }

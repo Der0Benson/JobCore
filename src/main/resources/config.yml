@@ -1,3 +1,14 @@
+storage:
+  type: "yaml"
+  mysql:
+    host: "127.0.0.1"
+    port: 3306
+    database: "jobcore"
+    username: "root"
+    password: "passwort"
+    table-prefix: "jobcore_"
+    use-ssl: false
+
 xp-formula:
   base: 100
   per-level: 50
@@ -58,6 +69,34 @@ jobs:
         type: BONUS_DROP_CHANCE
         value: 0.05
         display: "<green>5% Chance auf Bonus-Drops"
+    path-rewards:
+      5:
+        - type: MESSAGE
+          display: "<aqua>Willkommens-Belohnung"
+          value: "<green>Du hast die ersten Stufen des Holzfäller-Pfads erreicht."
+      15:
+        - type: ITEM
+          material: OAK_SAPLING
+          amount: 8
+          display: "<green>8 Eichensetzlinge"
+      30:
+        - type: ITEM
+          material: STICK
+          amount: 16
+          display: "<green>16 Stöcke"
+      50:
+        - type: MESSAGE
+          display: "<gold>Meilenstein Level 50"
+          value: "<gold>Du hast Level 50 als Holzfäller erreicht."
+      75:
+        - type: ITEM
+          material: MOSS_BLOCK
+          amount: 4
+          display: "<green>4 Moosblöcke"
+      100:
+        - type: MESSAGE
+          display: "<yellow>Holzfäller-Meister"
+          value: "<yellow>Du hast den Holzfäller-Pfad auf Level 100 abgeschlossen."
     bonus-drops:
       - material: STICK
         amount: 2
@@ -74,6 +113,8 @@ messages:
   no-permission: "<red>Du hast dafür keine Berechtigung."
   player-only: "<red>Dieser Befehl ist nur im Spiel nutzbar."
   reloaded: "<green>Konfiguration und Job-Werte wurden neu geladen."
+  reward-unlocked: "<green>%job% Lv.%level% Belohnung: <white>%reward%</white>"
+  storage-restart-required: "<yellow>Änderungen am Speicher-Backend greifen erst nach einem Serverneustart.</yellow>"
   unknown-subcommand: "<red>Unbekannter Subcommand. Nutze <white>/customjobs reload</white>, <white>/customjobs info</white> oder <white>/level</white>."
   info-header: "<gray>Deine Job-Level:"
   info-entry: "<gray>%job%: <white>Lv.%level%</white> <gray>- <white>%xp%/%needed%</white>"

@@ -1,8 +1,10 @@
 package de.deinname.customjobs;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
@@ -10,6 +12,7 @@ import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,6 +26,7 @@ public final class JobManager {
     private final BossBarManager bossBarManager;
     private final Map<Job, Map<Material, Integer>> configuredXpValues = new HashMap<>();
     private final Map<Job, List<JobPerk>> configuredPerks = new HashMap<>();
+    private final Map<Job, Map<Integer, List<PathReward>>> configuredPathRewards = new HashMap<>();
     private final Map<Job, List<BonusDropEntry>> configuredBonusDrops = new HashMap<>();
 
     
@@ -43,11 +47,13 @@ public final class JobManager {
     public void reload() {
         configuredXpValues.clear();
         configuredPerks.clear();
+        configuredPathRewards.clear();
         configuredBonusDrops.clear();
 
         for (final Job job : Job.values()) {
             configuredXpValues.put(job, loadXpValues(job));
             configuredPerks.put(job, loadPerks(job));
+            configuredPathRewards.put(job, loadPathRewards(job));
             configuredBonusDrops.put(job, loadBonusDrops(job));
         }
     }
@@ -82,7 +88,10 @@ public final class JobManager {
         return configuredPerks.getOrDefault(job, job.getDefaultPerks());
     }
 
-    
+    public List<PathReward> getPathRewards(final Job job, final int level) {
+        return configuredPathRewards.getOrDefault(job, job.getDefaultPathRewards()).getOrDefault(level, List.of());
+    }
+
     public double getUnlockedPerkValue(final Job job, final int level, final PerkType perkType) {
         return getPerks(job).stream()
                 .filter(perk -> perk.type() == perkType)
@@ -110,10 +119,12 @@ public final class JobManager {
         progress.setXp(progress.getXp() + granted);
 
         boolean leveledUp = false;
+        final List<Integer> reachedLevels = new ArrayList<>();
         long neededXp = getXpForNextLevel(progress.getLevel());
         while (progress.getXp() >= neededXp) {
             progress.setXp(progress.getXp() - neededXp);
             progress.setLevel(progress.getLevel() + 1);
+            reachedLevels.add(progress.getLevel());
             leveledUp = true;
             neededXp = getXpForNextLevel(progress.getLevel());
         }
@@ -128,7 +139,11 @@ public final class JobManager {
         );
 
         if (leveledUp) {
+            for (final int level : reachedLevels) {
+                grantLevelRewards(player, job, level);
+            }
             bossBarManager.handleLevelUp(player, job);
+            playerDataManager.savePlayerData(player.getUniqueId());
         }
 
         return granted;
@@ -234,6 +249,47 @@ public final class JobManager {
         return List.copyOf(perks);
     }
 
+    private Map<Integer, List<PathReward>> loadPathRewards(final Job job) {
+        final ConfigurationSection section = configManager.getConfiguration()
+                .getConfigurationSection("jobs." + job.getId() + ".path-rewards");
+
+        if (section == null) {
+            return job.getDefaultPathRewards();
+        }
+
+        final Map<Integer, List<PathReward>> pathRewards = new HashMap<>();
+        for (final String key : section.getKeys(false)) {
+            final int level = parseInt(key, -1);
+            if (level <= 0) {
+                plugin.getLogger().warning("Ungültige Reward-Stufe für Job " + job.getId() + ": " + key);
+                continue;
+            }
+
+            final List<Map<?, ?>> rawEntries = configManager.getConfiguration()
+                    .getMapList("jobs." + job.getId() + ".path-rewards." + key);
+
+            if (rawEntries.isEmpty()) {
+                continue;
+            }
+
+            final List<PathReward> rewards = new ArrayList<>();
+            for (final Map<?, ?> entry : rawEntries) {
+                final Optional<PathReward> reward = parsePathReward(job, level, entry);
+                reward.ifPresent(rewards::add);
+            }
+
+            if (!rewards.isEmpty()) {
+                pathRewards.put(level, List.copyOf(rewards));
+            }
+        }
+
+        if (pathRewards.isEmpty()) {
+            return job.getDefaultPathRewards();
+        }
+
+        return Map.copyOf(pathRewards);
+    }
+
     private List<BonusDropEntry> loadBonusDrops(final Job job) {
         final List<Map<?, ?>> rawEntries = configManager.getConfiguration()
                 .getMapList("jobs." + job.getId() + ".bonus-drops");
@@ -262,6 +318,124 @@ public final class JobManager {
         }
 
         return List.copyOf(bonusDrops);
+    }
+
+    private Optional<PathReward> parsePathReward(final Job job, final int level, final Map<?, ?> entry) {
+        final Optional<PathRewardType> rewardType = PathRewardType.fromConfig(String.valueOf(entry.get("type")));
+        if (rewardType.isEmpty()) {
+            plugin.getLogger().warning("Ungültiger Reward-Typ für Job " + job.getId() + " auf Level " + level + ": " + entry);
+            return Optional.empty();
+        }
+
+        final String rawDisplay = entry.containsKey("display") ? String.valueOf(entry.get("display")) : "";
+        if (rewardType.get() == PathRewardType.ITEM) {
+            final Material material = Material.matchMaterial(String.valueOf(entry.get("material")));
+            final int amount = parseInt(entry.get("amount"), 1);
+            if (material == null || amount <= 0) {
+                plugin.getLogger().warning("Ungültiger Item-Reward für Job " + job.getId() + " auf Level " + level + ": " + entry);
+                return Optional.empty();
+            }
+
+            final String display = rawDisplay.isBlank() ? "<green>" + amount + "x " + formatMaterialName(material) : rawDisplay;
+            return Optional.of(new PathReward(PathRewardType.ITEM, display, "", material, amount));
+        }
+
+        final String value = entry.containsKey("value") ? String.valueOf(entry.get("value")) : "";
+        if (value.isBlank()) {
+            plugin.getLogger().warning("Reward ohne Wert für Job " + job.getId() + " auf Level " + level + ": " + entry);
+            return Optional.empty();
+        }
+
+        final String display = rawDisplay.isBlank()
+                ? rewardType.get() == PathRewardType.COMMAND ? "<gold>Befehls-Belohnung" : "<aqua>Nachrichten-Belohnung"
+                : rawDisplay;
+
+        return Optional.of(new PathReward(rewardType.get(), display, value, null, 0));
+    }
+
+    private void grantLevelRewards(final Player player, final Job job, final int level) {
+        for (final PathReward reward : getPathRewards(job, level)) {
+            grantReward(player, job, level, reward);
+        }
+    }
+
+    private void grantReward(final Player player, final Job job, final int level, final PathReward reward) {
+        switch (reward.type()) {
+            case ITEM -> grantItemReward(player, reward);
+            case COMMAND -> grantCommandReward(player, job, level, reward);
+            case MESSAGE -> grantMessageReward(player, job, level, reward);
+        }
+
+        if (!reward.display().isBlank() && reward.type() != PathRewardType.MESSAGE) {
+            player.sendMessage(configManager.getMessage(
+                    "messages.reward-unlocked",
+                    Map.of(
+                            "job", configManager.getJobDisplayName(job),
+                            "level", String.valueOf(level),
+                            "reward", reward.display()
+                    )
+            ));
+        }
+    }
+
+    private void grantItemReward(final Player player, final PathReward reward) {
+        if (reward.material() == null || reward.amount() <= 0) {
+            return;
+        }
+
+        final Map<Integer, ItemStack> leftoverItems = player.getInventory().addItem(new ItemStack(reward.material(), reward.amount()));
+        for (final ItemStack leftover : leftoverItems.values()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+        }
+    }
+
+    private void grantCommandReward(final Player player, final Job job, final int level, final PathReward reward) {
+        final String command = applyRewardPlaceholders(player, job, level, reward.value());
+        if (command.isBlank()) {
+            return;
+        }
+
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command.startsWith("/") ? command.substring(1) : command);
+    }
+
+    private void grantMessageReward(final Player player, final Job job, final int level, final PathReward reward) {
+        if (!reward.display().isBlank()) {
+            player.sendMessage(configManager.getMessage(
+                    "messages.reward-unlocked",
+                    Map.of(
+                            "job", configManager.getJobDisplayName(job),
+                            "level", String.valueOf(level),
+                            "reward", reward.display()
+                    )
+            ));
+        }
+
+        final String message = applyRewardPlaceholders(player, job, level, reward.value());
+        if (!message.isBlank()) {
+            player.sendMessage(configManager.deserialize(message));
+        }
+    }
+
+    private String applyRewardPlaceholders(final Player player, final Job job, final int level, final String input) {
+        return input
+                .replace("%player%", player.getName())
+                .replace("%job%", configManager.getJobDisplayName(job))
+                .replace("%level%", String.valueOf(level));
+    }
+
+    private String formatMaterialName(final Material material) {
+        final String[] parts = material.name().toLowerCase(Locale.ROOT).split("_");
+        final StringBuilder builder = new StringBuilder();
+        for (final String part : parts) {
+            if (part.isBlank()) {
+                continue;
+            }
+            if (builder.length() > 0) {
+                builder.append(' ');
+            }
+            builder.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+        }
+        return builder.toString();
     }
 
     private int parseInt(final Object value, final int fallback) {

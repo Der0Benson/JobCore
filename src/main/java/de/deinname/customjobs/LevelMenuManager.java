@@ -26,21 +26,21 @@ public final class LevelMenuManager implements Listener {
     private static final int OVERVIEW_INFO_SLOT = 22;
     private static final List<Integer> OVERVIEW_JOB_SLOTS = List.of(10, 13, 16, 28, 31, 34);
     private static final List<Integer> PATH_NODE_SLOTS = List.of(
-            36, 27, 18, 9,
-            10, 11,
-            20, 29, 38,
-            39, 40,
-            31, 22, 13,
-            14, 15,
-            24, 33, 42,
-            43, 44
+            27, 28, 19, 10,
+            11, 12,
+            21, 30,
+            31, 32,
+            23, 14,
+            15, 16,
+            25, 34,
+            35
     );
     private static final int BACK_SLOT = 45;
     private static final int PREVIOUS_SLOT = 47;
     private static final int SUMMARY_SLOT = 49;
     private static final int NEXT_SLOT = 51;
     private static final int PATH_PAGE_SIZE = PATH_NODE_SLOTS.size();
-    private static final int MINIMUM_DISPLAY_LEVEL = 90;
+    private static final int MAX_DISPLAY_LEVEL = 100;
 
     private final ConfigManager configManager;
     private final JobManager jobManager;
@@ -80,7 +80,7 @@ public final class LevelMenuManager implements Listener {
 
     
     public void openPath(final Player player, final Job job, final int requestedPage) {
-        final int maxLevel = getMaxDisplayLevel(player, job);
+        final int maxLevel = getMaxDisplayLevel();
         final int totalPages = getTotalPages(maxLevel);
         final int page = clampPage(requestedPage, totalPages);
         final LevelMenuHolder holder = new LevelMenuHolder(LevelMenuView.PATH, job, page);
@@ -159,7 +159,7 @@ public final class LevelMenuManager implements Listener {
             return;
         }
 
-        final int totalPages = getTotalPages(getMaxDisplayLevel(player, job));
+        final int totalPages = getTotalPages(getMaxDisplayLevel());
         if (slot == BACK_SLOT) {
             openOverview(player);
             return;
@@ -227,8 +227,6 @@ public final class LevelMenuManager implements Listener {
 
     private void placePathGrid(final Player player, final Inventory inventory, final Job job, final int page, final int maxLevel) {
         final JobProgress progress = jobManager.getProgress(player.getUniqueId(), job);
-        final int currentLevel = progress.getLevel();
-        final long currentTotalXp = getCurrentTotalXp(progress);
 
         for (int index = 0; index < PATH_NODE_SLOTS.size(); index++) {
             final int level = (page * PATH_PAGE_SIZE) + index + 1;
@@ -238,7 +236,7 @@ public final class LevelMenuManager implements Listener {
                 continue;
             }
 
-            inventory.setItem(slot, createLevelNode(job, level, currentLevel, currentTotalXp));
+            inventory.setItem(slot, createLevelNode(job, level, progress));
         }
     }
 
@@ -255,6 +253,8 @@ public final class LevelMenuManager implements Listener {
         final int pageStartLevel = (page * PATH_PAGE_SIZE) + 1;
         final int pageEndLevel = Math.min(maxLevel, pageStartLevel + PATH_PAGE_SIZE - 1);
         final JobPerk nextPerk = nextPerk(job, progress.getLevel());
+        final Integer nextRewardLevel = nextRewardLevel(job, progress.getLevel());
+        final List<PathReward> nextRewards = nextRewardLevel == null ? List.of() : jobManager.getPathRewards(job, nextRewardLevel);
 
         inventory.setItem(BACK_SLOT, createItem(
                 Material.BOOK,
@@ -271,7 +271,7 @@ public final class LevelMenuManager implements Listener {
         inventory.setItem(SUMMARY_SLOT, createItem(
                 configManager.getJobIcon(job),
                 "<green>" + configManager.getJobDisplayName(job) + "</green>",
-                buildSummaryLore(job, progress, neededXp, nextPerk, page + 1, totalPages, pageStartLevel, pageEndLevel),
+                buildSummaryLore(job, progress, neededXp, nextPerk, nextRewardLevel, nextRewards, page + 1, totalPages, pageStartLevel, pageEndLevel),
                 true
         ));
         inventory.setItem(NEXT_SLOT, createNavigationItem(
@@ -287,6 +287,8 @@ public final class LevelMenuManager implements Listener {
             final JobProgress progress,
             final long neededXp,
             final JobPerk nextPerk,
+            final Integer nextRewardLevel,
+            final List<PathReward> nextRewards,
             final int currentPage,
             final int totalPages,
             final int pageStartLevel,
@@ -304,45 +306,68 @@ public final class LevelMenuManager implements Listener {
             lore.add("<gray>N\u00e4chster Perk: <white>Lv." + nextPerk.level() + "</white>");
             lore.add(nextPerk.display());
         }
+        if (nextRewardLevel == null || nextRewards.isEmpty()) {
+            lore.add("<green>Keine weitere Pfad-Belohnung definiert.");
+        } else {
+            lore.add("<gray>N\u00e4chste Belohnung: <white>Lv." + nextRewardLevel + "</white>");
+            lore.add(nextRewards.getFirst().display());
+            if (nextRewards.size() > 1) {
+                lore.add("<gray>+<white>" + (nextRewards.size() - 1) + "</white> weitere Belohnungen");
+            }
+        }
         return lore;
     }
 
-    private ItemStack createLevelNode(final Job job, final int level, final int currentLevel, final long currentTotalXp) {
+    private ItemStack createLevelNode(final Job job, final int level, final JobProgress progress) {
+        final int currentLevel = progress.getLevel();
         final boolean unlocked = currentLevel >= level;
         final boolean next = !unlocked && level == (currentLevel + 1);
         final List<JobPerk> perks = perksAtLevel(job, level);
-        final long totalXpRequired = getTotalXpToReach(level);
-        final long remainingXp = Math.max(0L, totalXpRequired - currentTotalXp);
-        final boolean perkLevel = !perks.isEmpty();
+        final List<PathReward> rewards = jobManager.getPathRewards(job, level);
+        final boolean specialLevel = !perks.isEmpty() || !rewards.isEmpty();
 
         final String stateText = unlocked ? "<green>Freigeschaltet" : next ? "<yellow>N\u00e4chstes Ziel" : "<gray>Gesperrt";
         final List<String> lore = new ArrayList<>();
-        lore.add("<gray>Status: " + stateText);
-        lore.add("<gray>Gesamt bis hier: <white>" + totalXpRequired + " XP</white>");
-        lore.add("<gray>Noch offen: <white>" + remainingXp + " XP</white>");
+        lore.add(stateText);
+        if (next) {
+            final long missingXp = Math.max(0L, jobManager.getXpForNextLevel(currentLevel) - progress.getXp());
+            lore.add("<gray>Fehlende XP: <white>" + missingXp + "</white>");
+        }
 
-        if (perks.isEmpty()) {
-            lore.add("<dark_gray>Kein neuer Perk auf dieser Stufe.");
-        } else {
-            lore.add("<gray>Belohnungen:");
+        if (perks.isEmpty() && rewards.isEmpty()) {
+            lore.add("<dark_gray>Keine neue Belohnung auf dieser Stufe.");
+        }
+
+        if (!perks.isEmpty()) {
+            lore.add("<gray>Perks:");
             for (final JobPerk perk : perks) {
                 lore.add(perk.display());
             }
         }
 
+        if (!rewards.isEmpty()) {
+            lore.add("<gray>Belohnungen:");
+            for (final PathReward reward : rewards) {
+                lore.add(reward.display());
+            }
+        }
+
         return createItem(
-                getNodeMaterial(perkLevel),
+                getNodeMaterial(unlocked, specialLevel),
                 (unlocked ? "<green>" : next ? "<yellow>" : "<gray>") + "Level " + level,
                 lore,
-                next || perkLevel
+                specialLevel
         );
     }
 
-    private Material getNodeMaterial(final boolean perkLevel) {
+    private Material getNodeMaterial(final boolean unlocked, final boolean perkLevel) {
         if (perkLevel) {
             return Material.YELLOW_STAINED_GLASS;
         }
-        return Material.GRAY_STAINED_GLASS_PANE;
+        if (unlocked) {
+            return Material.LIME_STAINED_GLASS_PANE;
+        }
+        return Material.RED_STAINED_GLASS_PANE;
     }
 
     private List<JobPerk> perksAtLevel(final Job job, final int level) {
@@ -351,13 +376,8 @@ public final class LevelMenuManager implements Listener {
                 .toList();
     }
 
-    private int getMaxDisplayLevel(final Player player, final Job job) {
-        final int highestPerkLevel = jobManager.getPerks(job).stream()
-                .mapToInt(JobPerk::level)
-                .max()
-                .orElse(50);
-        final int playerLevel = jobManager.getProgress(player.getUniqueId(), job).getLevel();
-        return roundUpToPage(Math.max(MINIMUM_DISPLAY_LEVEL, Math.max(highestPerkLevel + 15, playerLevel + 15)));
+    private int getMaxDisplayLevel() {
+        return MAX_DISPLAY_LEVEL;
     }
 
     private int getTotalPages(final int maxLevel) {
@@ -371,29 +391,17 @@ public final class LevelMenuManager implements Listener {
         return Math.min(requestedPage, totalPages - 1);
     }
 
-    private int roundUpToPage(final int level) {
-        final int remainder = level % PATH_PAGE_SIZE;
-        if (remainder == 0) {
-            return Math.max(PATH_PAGE_SIZE, level);
-        }
-        return level + (PATH_PAGE_SIZE - remainder);
-    }
-
-    private long getCurrentTotalXp(final JobProgress progress) {
-        return getTotalXpToReach(progress.getLevel()) + progress.getXp();
-    }
-
-    private long getTotalXpToReach(final int level) {
-        long total = 0L;
-        for (int currentLevel = 0; currentLevel < level; currentLevel++) {
-            total += jobManager.getXpForNextLevel(currentLevel);
-        }
-        return total;
-    }
-
     private JobPerk nextPerk(final Job job, final int currentLevel) {
         return jobManager.getPerks(job).stream()
                 .filter(perk -> perk.level() > currentLevel)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private Integer nextRewardLevel(final Job job, final int currentLevel) {
+        return java.util.stream.IntStream.rangeClosed(currentLevel + 1, 100)
+                .filter(level -> !jobManager.getPathRewards(job, level).isEmpty())
+                .boxed()
                 .findFirst()
                 .orElse(null);
     }
@@ -404,6 +412,10 @@ public final class LevelMenuManager implements Listener {
         final long unlockedPerks = jobManager.getPerks(job).stream()
                 .filter(perk -> progress.getLevel() >= perk.level())
                 .count();
+        final long unlockedRewards = java.util.stream.IntStream.rangeClosed(1, 100)
+                .filter(level -> progress.getLevel() >= level)
+                .filter(level -> !jobManager.getPathRewards(job, level).isEmpty())
+                .count();
 
         return createItem(
                 configManager.getJobIcon(job),
@@ -412,6 +424,7 @@ public final class LevelMenuManager implements Listener {
                         "<gray>Level: <white>" + progress.getLevel() + "</white>",
                         "<gray>XP: <white>" + progress.getXp() + "/" + neededXp + "</white>",
                         "<gray>Freigeschaltete Perks: <white>" + unlockedPerks + "/" + jobManager.getPerks(job).size() + "</white>",
+                        "<gray>Belohnungs-Stufen: <white>" + unlockedRewards + "</white>",
                         "<green>Verf\u00fcgbar",
                         "<yellow>Klicke f\u00fcr den detaillierten Pfad."
                 ),
