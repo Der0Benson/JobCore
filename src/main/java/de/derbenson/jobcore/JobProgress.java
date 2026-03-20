@@ -1,4 +1,4 @@
-package de.deinname.customjobs;
+package de.derbenson.jobcore;
 
 public final class JobProgress {
 
@@ -48,3 +48,4 @@ public final class JobProgress {
         this.fractionalXp = Math.max(0.0D, fractionalXp);
     }
 }
+

@@ -1,0 +1,85 @@
+display-name: "Farmer"
+icon: "GOLDEN_HOE"
+bossbar-color: "YELLOW"
+
+placed-protection:
+  - MELON
+  - PUMPKIN
+  - SUGAR_CANE
+  - CACTUS
+
+mature-harvest:
+  - WHEAT
+  - CARROTS
+  - POTATOES
+  - BEETROOTS
+  - NETHER_WART
+  - COCOA
+  - SWEET_BERRY_BUSH
+
+xp-values:
+  WHEAT: 8
+  CARROTS: 7
+  POTATOES: 7
+  BEETROOTS: 9
+  NETHER_WART: 8
+  COCOA: 9
+  SWEET_BERRY_BUSH: 7
+  MELON: 10
+  PUMPKIN: 11
+  SUGAR_CANE: 5
+  CACTUS: 5
+
+perks:
+  - level: 10
+    type: XP_BOOST
+    value: 0.02
+    display: "<yellow>+2% Job-XP"
+  - level: 25
+    type: DOUBLE_DROP_CHANCE
+    value: 0.02
+    display: "<yellow>2% Chance auf doppelte Ernte"
+  - level: 50
+    type: BONUS_DROP_CHANCE
+    value: 0.05
+    display: "<yellow>5% Chance auf Bonus-Ernte"
+
+path-rewards:
+  5:
+    - type: MESSAGE
+      display: "<aqua>Erste Ernte"
+      value: "<yellow>Du hast die ersten Stufen des Farmer-Pfads erreicht."
+  15:
+    - type: ITEM
+      material: BONE_MEAL
+      amount: 16
+      display: "<yellow>16 Knochenmehl"
+  30:
+    - type: ITEM
+      material: BREAD
+      amount: 8
+      display: "<yellow>8 Brote"
+  50:
+    - type: MESSAGE
+      display: "<gold>Meilenstein Level 50"
+      value: "<gold>Du hast Level 50 als Farmer erreicht."
+  75:
+    - type: ITEM
+      material: GOLDEN_CARROT
+      amount: 4
+      display: "<yellow>4 goldene Karotten"
+  100:
+    - type: MESSAGE
+      display: "<yellow>Meister der Felder"
+      value: "<yellow>Du hast den Farmer-Pfad auf Level 100 abgeschlossen."
+
+bonus-drops:
+  - material: BONE_MEAL
+    amount: 4
+    weight: 45
+  - material: HAY_BLOCK
+    amount: 1
+    weight: 30
+  - material: GOLDEN_CARROT
+    amount: 2
+    weight: 25

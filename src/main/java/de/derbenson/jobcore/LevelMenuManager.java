@@ -1,4 +1,4 @@
-package de.deinname.customjobs;
+package de.derbenson.jobcore;
 
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -40,14 +40,10 @@ public final class LevelMenuManager implements Listener {
     private static final int SUMMARY_SLOT = 49;
     private static final int NEXT_SLOT = 51;
     private static final int PATH_PAGE_SIZE = PATH_NODE_SLOTS.size();
-    private static final int MAX_DISPLAY_LEVEL = 100;
-
     private final ConfigManager configManager;
     private final JobManager jobManager;
     private final DecimalFormat percentFormat = new DecimalFormat("0.##%");
     private final List<DummyJobCard> dummyJobs = List.of(
-            new DummyJobCard("Miner", Material.IRON_PICKAXE, "Erze, Stein und tiefe Pfade."),
-            new DummyJobCard("Farmer", Material.GOLDEN_HOE, "Felder, Tiere und Ernten."),
             new DummyJobCard("Fischer", Material.FISHING_ROD, "Seen, Ozeane und seltene F\u00e4nge."),
             new DummyJobCard("J\u00e4ger", Material.BOW, "Mobs, Beute und Jagdserien."),
             new DummyJobCard("Alchemist", Material.BREWING_STAND, "Zutaten, Tr\u00e4nke und Experimente.")
@@ -68,7 +64,7 @@ public final class LevelMenuManager implements Listener {
         fillOverviewBackground(inventory);
         inventory.setItem(OVERVIEW_HEADER_SLOT, createItem(Material.BOOK, "<gold>Job-Auswahl</gold>", List.of(
                 "<gray>W\u00e4hle einen Job, dessen Pfad du genauer sehen m\u00f6chtest.",
-                "<gray>Aktuell ist der <white>Holzf\u00e4ller</white> vollst\u00e4ndig spielbar.",
+                "<gray><white>Holzf\u00e4ller</white>, <white>Miner</white> und <white>Farmer</white> sind spielbar.",
                 "<gray>Weitere Jobs sind bereits als Platzhalter vorbereitet."
         ), false));
         placeOverviewSummary(player, inventory);
@@ -296,7 +292,9 @@ public final class LevelMenuManager implements Listener {
     ) {
         final List<String> lore = new ArrayList<>();
         lore.add("<gray>Level: <white>" + progress.getLevel() + "</white>");
-        lore.add("<gray>XP: <white>" + progress.getXp() + "/" + neededXp + "</white>");
+        lore.add(jobManager.isMaxLevel(progress.getLevel())
+                ? "<gray>XP: <white>MAX/MAX</white>"
+                : "<gray>XP: <white>" + progress.getXp() + "/" + neededXp + "</white>");
         lore.add("<gray>Aktive XP-Boni: <white>" + percentFormat.format(jobManager.getUnlockedPerkValue(job, progress.getLevel(), PerkType.XP_BOOST)) + "</white>");
         lore.add("<gray>Seite: <white>" + currentPage + "/" + totalPages + "</white>");
         lore.add("<gray>Bereich: <white>Lv." + pageStartLevel + " bis Lv." + pageEndLevel + "</white>");
@@ -377,7 +375,7 @@ public final class LevelMenuManager implements Listener {
     }
 
     private int getMaxDisplayLevel() {
-        return MAX_DISPLAY_LEVEL;
+        return jobManager.getMaxLevel();
     }
 
     private int getTotalPages(final int maxLevel) {
@@ -399,7 +397,7 @@ public final class LevelMenuManager implements Listener {
     }
 
     private Integer nextRewardLevel(final Job job, final int currentLevel) {
-        return java.util.stream.IntStream.rangeClosed(currentLevel + 1, 100)
+        return java.util.stream.IntStream.rangeClosed(currentLevel + 1, jobManager.getMaxLevel())
                 .filter(level -> !jobManager.getPathRewards(job, level).isEmpty())
                 .boxed()
                 .findFirst()
@@ -409,10 +407,13 @@ public final class LevelMenuManager implements Listener {
     private ItemStack createRealJobItem(final Player player, final Job job) {
         final JobProgress progress = jobManager.getProgress(player.getUniqueId(), job);
         final long neededXp = jobManager.getXpForNextLevel(progress.getLevel());
+        final String progressText = jobManager.isMaxLevel(progress.getLevel())
+                ? "<gray>XP: <white>MAX/MAX</white>"
+                : "<gray>XP: <white>" + progress.getXp() + "/" + neededXp + "</white>";
         final long unlockedPerks = jobManager.getPerks(job).stream()
                 .filter(perk -> progress.getLevel() >= perk.level())
                 .count();
-        final long unlockedRewards = java.util.stream.IntStream.rangeClosed(1, 100)
+        final long unlockedRewards = java.util.stream.IntStream.rangeClosed(1, jobManager.getMaxLevel())
                 .filter(level -> progress.getLevel() >= level)
                 .filter(level -> !jobManager.getPathRewards(job, level).isEmpty())
                 .count();
@@ -422,7 +423,7 @@ public final class LevelMenuManager implements Listener {
                 "<green>" + configManager.getJobDisplayName(job) + "</green>",
                 List.of(
                         "<gray>Level: <white>" + progress.getLevel() + "</white>",
-                        "<gray>XP: <white>" + progress.getXp() + "/" + neededXp + "</white>",
+                        progressText,
                         "<gray>Freigeschaltete Perks: <white>" + unlockedPerks + "/" + jobManager.getPerks(job).size() + "</white>",
                         "<gray>Belohnungs-Stufen: <white>" + unlockedRewards + "</white>",
                         "<green>Verf\u00fcgbar",
@@ -509,3 +510,4 @@ public final class LevelMenuManager implements Listener {
     private record DummyJobCard(String displayName, Material icon, String description) {
     }
 }
+

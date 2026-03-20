@@ -1,0 +1,105 @@
+display-name: "Miner"
+icon: "DIAMOND_PICKAXE"
+bossbar-color: "BLUE"
+
+placed-protection:
+  - STONE
+  - DEEPSLATE
+  - TUFF
+  - COAL_ORE
+  - DEEPSLATE_COAL_ORE
+  - COPPER_ORE
+  - DEEPSLATE_COPPER_ORE
+  - IRON_ORE
+  - DEEPSLATE_IRON_ORE
+  - GOLD_ORE
+  - DEEPSLATE_GOLD_ORE
+  - REDSTONE_ORE
+  - DEEPSLATE_REDSTONE_ORE
+  - LAPIS_ORE
+  - DEEPSLATE_LAPIS_ORE
+  - DIAMOND_ORE
+  - DEEPSLATE_DIAMOND_ORE
+  - EMERALD_ORE
+  - DEEPSLATE_EMERALD_ORE
+  - NETHER_GOLD_ORE
+  - NETHER_QUARTZ_ORE
+  - ANCIENT_DEBRIS
+
+xp-values:
+  STONE: 1
+  DEEPSLATE: 2
+  TUFF: 2
+  COAL_ORE: 8
+  DEEPSLATE_COAL_ORE: 9
+  COPPER_ORE: 9
+  DEEPSLATE_COPPER_ORE: 10
+  IRON_ORE: 10
+  DEEPSLATE_IRON_ORE: 11
+  GOLD_ORE: 12
+  DEEPSLATE_GOLD_ORE: 13
+  REDSTONE_ORE: 10
+  DEEPSLATE_REDSTONE_ORE: 11
+  LAPIS_ORE: 12
+  DEEPSLATE_LAPIS_ORE: 13
+  DIAMOND_ORE: 16
+  DEEPSLATE_DIAMOND_ORE: 18
+  EMERALD_ORE: 18
+  DEEPSLATE_EMERALD_ORE: 20
+  NETHER_GOLD_ORE: 10
+  NETHER_QUARTZ_ORE: 8
+  ANCIENT_DEBRIS: 30
+
+perks:
+  - level: 10
+    type: XP_BOOST
+    value: 0.02
+    display: "<blue>+2% Job-XP"
+  - level: 25
+    type: DOUBLE_DROP_CHANCE
+    value: 0.02
+    display: "<blue>2% Chance auf doppelte Erze"
+  - level: 50
+    type: BONUS_DROP_CHANCE
+    value: 0.05
+    display: "<blue>5% Chance auf Bonus-Drops"
+
+path-rewards:
+  5:
+    - type: MESSAGE
+      display: "<aqua>Unter Tage angekommen"
+      value: "<blue>Du hast die ersten Tiefen des Miner-Pfads erreicht."
+  15:
+    - type: ITEM
+      material: TORCH
+      amount: 16
+      display: "<blue>16 Fackeln"
+  30:
+    - type: ITEM
+      material: RAW_IRON
+      amount: 8
+      display: "<blue>8 rohe Eisen"
+  50:
+    - type: MESSAGE
+      display: "<gold>Meilenstein Level 50"
+      value: "<gold>Du hast Level 50 als Miner erreicht."
+  75:
+    - type: ITEM
+      material: DIAMOND
+      amount: 4
+      display: "<blue>4 Diamanten"
+  100:
+    - type: MESSAGE
+      display: "<yellow>Meister der Tiefe"
+      value: "<yellow>Du hast den Miner-Pfad auf Level 100 abgeschlossen."
+
+bonus-drops:
+  - material: FLINT
+    amount: 2
+    weight: 40
+  - material: RAW_COPPER
+    amount: 2
+    weight: 35
+  - material: RAW_IRON
+    amount: 1
+    weight: 25

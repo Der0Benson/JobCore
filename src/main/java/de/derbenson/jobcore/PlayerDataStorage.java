@@ -1,4 +1,4 @@
-package de.deinname.customjobs;
+package de.derbenson.jobcore;
 
 import java.util.UUID;
 
@@ -12,3 +12,4 @@ public interface PlayerDataStorage {
 
     void close();
 }
+

@@ -1,12 +1,18 @@
-package de.deinname.customjobs;
+package de.derbenson.jobcore;
 
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.EnumMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -17,11 +23,14 @@ public final class ConfigManager {
 
     private final JavaPlugin plugin;
     private final MiniMessage miniMessage;
+    private final File jobDirectory;
     private FileConfiguration configuration;
+    private final Map<Job, FileConfiguration> jobConfigurations = new EnumMap<>(Job.class);
 
     public ConfigManager(final JavaPlugin plugin) {
         this.plugin = plugin;
         this.miniMessage = MiniMessage.miniMessage();
+        this.jobDirectory = new File(plugin.getDataFolder(), "jobs");
         plugin.saveDefaultConfig();
         reload();
     }
@@ -29,10 +38,17 @@ public final class ConfigManager {
     public void reload() {
         plugin.reloadConfig();
         this.configuration = plugin.getConfig();
+        this.configuration.options().copyDefaults(true);
+        plugin.saveConfig();
+        reloadJobConfigurations();
     }
 
     public FileConfiguration getConfiguration() {
         return configuration;
+    }
+
+    public FileConfiguration getJobConfiguration(final Job job) {
+        return jobConfigurations.getOrDefault(job, new YamlConfiguration());
     }
 
     public Component getMessage(final String path) {
@@ -40,8 +56,12 @@ public final class ConfigManager {
     }
 
     public Component getMessage(final String path, final Map<String, String> placeholders) {
+        return getMessage(path, placeholders, "<red>Fehlende Nachricht: " + path + "</red>");
+    }
+
+    public Component getMessage(final String path, final Map<String, String> placeholders, final String fallback) {
         final String prefix = configuration.getString("messages.prefix", "");
-        final String value = configuration.getString(path, "<red>Fehlende Nachricht: " + path + "</red>");
+        final String value = configuration.getString(path, fallback);
         return miniMessage.deserialize(applyPlaceholders(prefix + value, placeholders));
     }
 
@@ -55,10 +75,6 @@ public final class ConfigManager {
 
     public String getStorageType() {
         return configuration.getString("storage.type", "yaml").trim().toLowerCase(Locale.ROOT);
-    }
-
-    public boolean isMySqlStorage() {
-        return getStorageType().equals("mysql");
     }
 
     public String getMySqlHost() {
@@ -164,11 +180,11 @@ public final class ConfigManager {
     }
 
     public String getLevelMenuCloseLabel() {
-        return configuration.getString("menu.close-label", "<red>Schließen");
+        return configuration.getString("menu.close-label", "<red>SchlieÃŸen");
     }
 
     public String getLevelMenuBackLabel() {
-        return configuration.getString("menu.back-label", "<yellow>Zur Übersicht");
+        return configuration.getString("menu.back-label", "<yellow>Zur Ãœbersicht");
     }
 
     public String getLevelMenuPreviousPageLabel() {
@@ -176,32 +192,67 @@ public final class ConfigManager {
     }
 
     public String getLevelMenuNextPageLabel() {
-        return configuration.getString("menu.next-page-label", "<gold>Nächste Seite");
+        return configuration.getString("menu.next-page-label", "<gold>NÃ¤chste Seite");
     }
 
     public String getJobDisplayName(final Job job) {
-        return configuration.getString("jobs." + job.getId() + ".display-name", job.getDisplayName());
+        return getJobConfiguration(job).getString("display-name", job.getDisplayName());
     }
 
     public Material getJobIcon(final Job job) {
-        final String raw = configuration.getString("jobs." + job.getId() + ".icon", job.getIcon().name());
+        final String raw = getJobConfiguration(job).getString("icon", job.getIcon().name());
         final Material material = Material.matchMaterial(raw);
         if (material == null) {
-            plugin.getLogger().warning("Ungültiges Job-Icon für " + job.getId() + ": " + raw
-                    + ". Verwende " + job.getIcon().name() + ".");
+            plugin.getLogger().warning("UngÃ¼ltiges Job-Icon fÃ¼r " + job.getId() + ": " + raw + ". Verwende " + job.getIcon().name() + ".");
             return job.getIcon();
         }
         return material;
     }
 
     public BossBar.Color getJobBossBarColor(final Job job) {
-        final String raw = configuration.getString("jobs." + job.getId() + ".bossbar-color", job.getBarColor().name());
+        final String raw = getJobConfiguration(job).getString("bossbar-color", job.getBarColor().name());
         try {
             return BossBar.Color.valueOf(raw.toUpperCase(Locale.ROOT));
         } catch (final IllegalArgumentException exception) {
-            plugin.getLogger().warning("Ungültige BossBar-Farbe für Job " + job.getId() + ": " + raw
-                    + ". Verwende Standardfarbe " + job.getBarColor().name() + ".");
+            plugin.getLogger().warning("UngÃ¼ltige BossBar-Farbe fÃ¼r Job " + job.getId() + ": " + raw + ". Verwende Standardfarbe " + job.getBarColor().name() + ".");
             return job.getBarColor();
+        }
+    }
+
+    private void reloadJobConfigurations() {
+        jobConfigurations.clear();
+        if (!jobDirectory.exists() && !jobDirectory.mkdirs()) {
+            plugin.getLogger().warning("Job-Ordner konnte nicht erstellt werden: " + jobDirectory.getAbsolutePath());
+        }
+
+        for (final Job job : Job.values()) {
+            final String resourcePath = "jobs/" + job.getId() + ".yml";
+            final File jobFile = new File(jobDirectory, job.getId() + ".yml");
+            if (!jobFile.exists() && plugin.getResource(resourcePath) != null) {
+                plugin.saveResource(resourcePath, false);
+            }
+
+            if (!jobFile.exists()) {
+                plugin.getLogger().warning("Job-Datei fehlt fÃ¼r " + job.getId() + ": " + jobFile.getAbsolutePath());
+                jobConfigurations.put(job, new YamlConfiguration());
+                continue;
+            }
+
+            final YamlConfiguration jobConfiguration = YamlConfiguration.loadConfiguration(jobFile);
+            try (InputStream inputStream = plugin.getResource(resourcePath)) {
+                if (inputStream != null) {
+                    final YamlConfiguration defaults = YamlConfiguration.loadConfiguration(
+                            new InputStreamReader(inputStream, StandardCharsets.UTF_8)
+                    );
+                    jobConfiguration.setDefaults(defaults);
+                    jobConfiguration.options().copyDefaults(true);
+                    jobConfiguration.save(jobFile);
+                }
+            } catch (final Exception exception) {
+                plugin.getLogger().warning("Job-Datei konnte nicht mit Defaults ergänzt werden für " + job.getId() + ": " + exception.getMessage());
+            }
+
+            jobConfigurations.put(job, jobConfiguration);
         }
     }
 
@@ -213,3 +264,4 @@ public final class ConfigManager {
         return result;
     }
 }
+

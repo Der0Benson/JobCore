@@ -1,4 +1,4 @@
-package de.deinname.customjobs;
+package de.derbenson.jobcore;
 
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
@@ -116,13 +116,15 @@ public final class BossBarManager {
             final long neededXp,
             final int xpGained
     ) {
+        final String xpText = neededXp <= 0L ? "MAX" : String.valueOf(currentXp);
+        final String neededText = neededXp <= 0L ? "MAX" : String.valueOf(neededXp);
         return configManager.deserialize(
                 configManager.getBossBarTitleTemplate(),
                 Map.of(
                         "job", configManager.getJobDisplayName(job),
                         "level", String.valueOf(level),
-                        "xp", String.valueOf(currentXp),
-                        "needed", String.valueOf(neededXp),
+                        "xp", xpText,
+                        "needed", neededText,
                         "xpGained", String.valueOf(xpGained)
                 )
         );
@@ -137,3 +139,4 @@ public final class BossBarManager {
         return Math.max(0.0F, Math.min(1.0F, progress));
     }
 }
+

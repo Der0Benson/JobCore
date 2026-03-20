@@ -1,4 +1,4 @@
-package de.deinname.customjobs;
+package de.derbenson.jobcore;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -48,6 +48,21 @@ public final class PlayerDataManager implements Listener {
         return playerData.computeIfAbsent(playerUuid, storage::load);
     }
 
+    public boolean isBossBarEnabled(final UUID playerUuid) {
+        return getOrCreateData(playerUuid).isBossBarEnabled();
+    }
+
+    public void setBossBarEnabled(final UUID playerUuid, final boolean enabled) {
+        getOrCreateData(playerUuid).setBossBarEnabled(enabled);
+    }
+
+    public boolean toggleBossBar(final UUID playerUuid) {
+        final PlayerJobData data = getOrCreateData(playerUuid);
+        final boolean enabled = !data.isBossBarEnabled();
+        data.setBossBarEnabled(enabled);
+        return enabled;
+    }
+
     public void close() {
         storage.close();
     }
@@ -62,3 +77,4 @@ public final class PlayerDataManager implements Listener {
         unloadPlayerData(event.getPlayer().getUniqueId());
     }
 }
+

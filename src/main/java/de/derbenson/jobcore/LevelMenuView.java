@@ -1,6 +1,7 @@
-package de.deinname.customjobs;
+package de.derbenson.jobcore;
 
 public enum LevelMenuView {
     OVERVIEW,
     PATH
 }
+

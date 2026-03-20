@@ -1,9 +1,7 @@
-package de.deinname.customjobs;
+package de.derbenson.jobcore;
 
-import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -11,11 +9,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataContainer;
-import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -32,28 +26,20 @@ public final class NaturalLogListener implements Listener {
 
     private final JobManager jobManager;
     private final ConfigManager configManager;
-    private final NamespacedKey playerPlacedKey;
+    private final PlacedBlockTracker placedBlockTracker;
     private final Map<UUID, Deque<RecentLogBreak>> recentBreaks = new HashMap<>();
     private final Map<UUID, List<TreeComboSession>> comboSessions = new HashMap<>();
 
-    
     public NaturalLogListener(
-            final JavaPlugin plugin,
             final JobManager jobManager,
-            final ConfigManager configManager
+            final ConfigManager configManager,
+            final PlacedBlockTracker placedBlockTracker
     ) {
         this.jobManager = jobManager;
         this.configManager = configManager;
-        this.playerPlacedKey = new NamespacedKey(plugin, "player_placed");
+        this.placedBlockTracker = placedBlockTracker;
     }
 
-    
-    @EventHandler
-    public void onBlockPlace(final BlockPlaceEvent event) {
-        markAsPlayerPlaced(event.getBlockPlaced());
-    }
-
-    
     @EventHandler(ignoreCancelled = true)
     public void onBlockBreak(final BlockBreakEvent event) {
         final Player player = event.getPlayer();
@@ -64,8 +50,8 @@ public final class NaturalLogListener implements Listener {
             return;
         }
 
-        if (isPlayerPlaced(block)) {
-            unmarkPlayerPlaced(block);
+        if (placedBlockTracker.isPlayerPlaced(block)) {
+            placedBlockTracker.unmarkPlayerPlaced(block);
             return;
         }
 
@@ -86,56 +72,6 @@ public final class NaturalLogListener implements Listener {
         jobManager.grantExperience(player, job, xp);
         applyPerkDrops(event, block, player, doubleDrops, bonusDrop);
         handleTreeCombo(player, block, job);
-    }
-
-    
-    private void markAsPlayerPlaced(final Block block) {
-        final Chunk chunk = block.getChunk();
-        final PersistentDataContainer container = chunk.getPersistentDataContainer();
-        final Set<Long> keys = readPlacedBlockKeys(container);
-        keys.add(block.getBlockKey());
-        writePlacedBlockKeys(container, keys);
-    }
-
-    private boolean isPlayerPlaced(final Block block) {
-        final PersistentDataContainer container = block.getChunk().getPersistentDataContainer();
-        return readPlacedBlockKeys(container).contains(block.getBlockKey());
-    }
-
-    private void unmarkPlayerPlaced(final Block block) {
-        final PersistentDataContainer container = block.getChunk().getPersistentDataContainer();
-        final Set<Long> keys = readPlacedBlockKeys(container);
-        if (!keys.remove(block.getBlockKey())) {
-            return;
-        }
-        writePlacedBlockKeys(container, keys);
-    }
-
-    private Set<Long> readPlacedBlockKeys(final PersistentDataContainer container) {
-        final long[] stored = container.get(playerPlacedKey, PersistentDataType.LONG_ARRAY);
-        final Set<Long> keys = new HashSet<>();
-        if (stored == null) {
-            return keys;
-        }
-
-        for (final long value : stored) {
-            keys.add(value);
-        }
-        return keys;
-    }
-
-    private void writePlacedBlockKeys(final PersistentDataContainer container, final Set<Long> keys) {
-        if (keys.isEmpty()) {
-            container.remove(playerPlacedKey);
-            return;
-        }
-
-        final long[] values = new long[keys.size()];
-        int index = 0;
-        for (final long value : keys) {
-            values[index++] = value;
-        }
-        container.set(playerPlacedKey, PersistentDataType.LONG_ARRAY, values);
     }
 
     private void applyPerkDrops(
@@ -215,7 +151,7 @@ public final class NaturalLogListener implements Listener {
 
         while (!queue.isEmpty() && visited.size() <= configManager.getComboScanLimit()) {
             final Block current = queue.removeFirst();
-            if (!jobManager.isTrackedMaterial(Job.WOODCUTTER, current.getType()) || isPlayerPlaced(current)) {
+            if (!jobManager.isTrackedMaterial(Job.WOODCUTTER, current.getType()) || placedBlockTracker.isPlayerPlaced(current)) {
                 continue;
             }
 
@@ -316,7 +252,6 @@ public final class NaturalLogListener implements Listener {
         return nearbyCount > threshold;
     }
 
-    
     private record RecentLogBreak(UUID worldId, double x, double y, double z, long timestamp) {
 
         private RecentLogBreak(final Location location, final long timestamp) {
@@ -335,7 +270,6 @@ public final class NaturalLogListener implements Listener {
         }
     }
 
-    
     private static final class TreeComboSession {
 
         private final UUID worldId;
@@ -371,3 +305,4 @@ public final class NaturalLogListener implements Listener {
         }
     }
 }
+

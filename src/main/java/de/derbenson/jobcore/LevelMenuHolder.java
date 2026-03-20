@@ -1,4 +1,4 @@
-package de.deinname.customjobs;
+package de.derbenson.jobcore;
 
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -42,3 +42,4 @@ public final class LevelMenuHolder implements InventoryHolder {
         return inventory;
     }
 }
+

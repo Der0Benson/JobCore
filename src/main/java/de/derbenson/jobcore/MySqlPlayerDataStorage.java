@@ -1,4 +1,4 @@
-package de.deinname.customjobs;
+package de.derbenson.jobcore;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -23,6 +23,7 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
     private final String password;
     private final boolean useSsl;
     private final String tableName;
+    private final String settingsTableName;
 
     public MySqlPlayerDataStorage(final JavaPlugin plugin, final String legacyDefaultJobId, final ConfigManager configManager) {
         this.plugin = plugin;
@@ -35,6 +36,7 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
         this.password = configManager.getMySqlPassword();
         this.useSsl = configManager.isMySqlUseSsl();
         this.tableName = normalizeTableName(configManager.getMySqlTablePrefix()) + "player_jobs";
+        this.settingsTableName = normalizeTableName(configManager.getMySqlTablePrefix()) + "player_settings";
     }
 
     @Override
@@ -51,6 +53,13 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
                             + "PRIMARY KEY (`uuid`, `job_id`)"
                             + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
             );
+            statement.executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS `" + settingsTableName + "` ("
+                            + "`uuid` CHAR(36) NOT NULL,"
+                            + "`bossbar_enabled` BOOLEAN NOT NULL DEFAULT TRUE,"
+                            + "PRIMARY KEY (`uuid`)"
+                            + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+            );
         }
     }
 
@@ -60,10 +69,20 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
 
         try (
                 Connection connection = openConnection();
+                PreparedStatement settingsStatement = connection.prepareStatement(
+                        "SELECT `bossbar_enabled` FROM `" + settingsTableName + "` WHERE `uuid` = ?"
+                );
                 PreparedStatement statement = connection.prepareStatement(
                         "SELECT `job_id`, `xp`, `level`, `fractional_xp` FROM `" + tableName + "` WHERE `uuid` = ?"
                 )
         ) {
+            settingsStatement.setString(1, playerUuid.toString());
+            try (ResultSet resultSet = settingsStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    data.setBossBarEnabled(resultSet.getBoolean("bossbar_enabled"));
+                }
+            }
+
             statement.setString(1, playerUuid.toString());
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
@@ -87,6 +106,10 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
             connection.setAutoCommit(false);
 
             try (
+                    PreparedStatement settingsStatement = connection.prepareStatement(
+                            "INSERT INTO `" + settingsTableName + "` (`uuid`, `bossbar_enabled`) VALUES (?, ?) "
+                                    + "ON DUPLICATE KEY UPDATE `bossbar_enabled` = VALUES(`bossbar_enabled`)"
+                    );
                     PreparedStatement deleteStatement = connection.prepareStatement(
                             "DELETE FROM `" + tableName + "` WHERE `uuid` = ?"
                     );
@@ -94,6 +117,10 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
                             "INSERT INTO `" + tableName + "` (`uuid`, `job_id`, `xp`, `level`, `fractional_xp`) VALUES (?, ?, ?, ?, ?)"
                     )
             ) {
+                settingsStatement.setString(1, playerUuid.toString());
+                settingsStatement.setBoolean(2, data.isBossBarEnabled());
+                settingsStatement.executeUpdate();
+
                 deleteStatement.setString(1, playerUuid.toString());
                 deleteStatement.executeUpdate();
 
@@ -167,7 +194,7 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
             final String portPart = trimmed.substring(firstColon + 1).trim();
             if (!hostPart.isBlank() && portPart.matches("\\d+")) {
                 final int parsedPort = Math.max(1, Integer.parseInt(portPart));
-                plugin.getLogger().warning("MySQL-Host enthält bereits einen Port. Verwende Host '" + hostPart + "' und Port " + parsedPort + ".");
+                plugin.getLogger().warning("MySQL-Host enthÃ¤lt bereits einen Port. Verwende Host '" + hostPart + "' und Port " + parsedPort + ".");
                 return new ConnectionTarget(hostPart, parsedPort);
             }
         }
@@ -178,3 +205,4 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
     private record ConnectionTarget(String host, int port) {
     }
 }
+

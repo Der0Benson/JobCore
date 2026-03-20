@@ -1,4 +1,4 @@
-package de.deinname.customjobs;
+package de.derbenson.jobcore;
 
 import org.bukkit.Material;
 
@@ -15,3 +15,4 @@ public record PathReward(
         amount = Math.max(0, amount);
     }
 }
+

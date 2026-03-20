@@ -1,4 +1,4 @@
-package de.deinname.customjobs;
+package de.derbenson.jobcore;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -24,6 +24,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
     private PlayerDataManager playerDataManager;
     private BossBarManager bossBarManager;
     private JobManager jobManager;
+    private PlacedBlockTracker placedBlockTracker;
     private LevelMenuManager levelMenuManager;
     private InactivityTask inactivityTask;
     private BukkitTask autosaveTask;
@@ -37,6 +38,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             this.playerDataManager = new PlayerDataManager(playerDataStorage);
             this.bossBarManager = new BossBarManager(this, configManager);
             this.jobManager = new JobManager(this, configManager, playerDataManager, bossBarManager);
+            this.placedBlockTracker = new PlacedBlockTracker(this);
             this.levelMenuManager = new LevelMenuManager(configManager, jobManager);
 
             registerCommands();
@@ -80,12 +82,16 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             return handleLevelCommand(sender);
         }
 
-        if (args.length == 0 || args[0].equalsIgnoreCase("info")) {
-            return handleInfoCommand(sender);
+        if (args.length == 0) {
+            return handleRootCommand(sender);
         }
 
-        if (args[0].equalsIgnoreCase("level")) {
-            return handleLevelCommand(sender);
+        if (args[0].equalsIgnoreCase("config")) {
+            return handleConfigCommand(sender);
+        }
+
+        if (args[0].equalsIgnoreCase("info")) {
+            return handleInfoCommand(sender);
         }
 
         if (args[0].equalsIgnoreCase("reload")) {
@@ -114,13 +120,11 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         final List<String> completions = new ArrayList<>();
         final List<String> options = new ArrayList<>();
 
-        if (sender.hasPermission("customjobs.info")) {
-            options.add("info");
-        }
-        if (sender.hasPermission("customjobs.level")) {
-            options.add("level");
+        if (sender instanceof Player && sender.hasPermission("customjobs.config")) {
+            options.add("config");
         }
         if (sender.hasPermission("customjobs.admin")) {
+            options.add("info");
             options.add("reload");
         }
 
@@ -128,7 +132,28 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         return completions;
     }
 
+    private boolean handleRootCommand(final CommandSender sender) {
+        boolean sentMessage = false;
+        if (sender instanceof Player && sender.hasPermission("customjobs.config")) {
+            sender.sendMessage(configManager.deserialize("<gray>Nutze <white>/jobcore config</white><gray>, um deine BossBar an- oder auszuschalten.</gray>"));
+            sentMessage = true;
+        }
+        if (sender.hasPermission("customjobs.admin")) {
+            sender.sendMessage(configManager.deserialize("<gray>Admin: <white>/jobcore info</white><gray>, <white>/jobcore reload</white></gray>"));
+            sentMessage = true;
+        }
+        if (!sentMessage) {
+            sender.sendMessage(configManager.getMessage("messages.no-permission"));
+        }
+        return true;
+    }
+
     private boolean handleInfoCommand(final CommandSender sender) {
+        if (!sender.hasPermission("customjobs.admin")) {
+            sender.sendMessage(configManager.getMessage("messages.no-permission"));
+            return true;
+        }
+
         if (!(sender instanceof Player player)) {
             sender.sendMessage(configManager.getMessage(
                     "messages.console-info",
@@ -137,25 +162,47 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             return true;
         }
 
-        if (!player.hasPermission("customjobs.info")) {
-            player.sendMessage(configManager.getMessage("messages.no-permission"));
-            return true;
-        }
-
         player.sendMessage(configManager.getMessage("messages.info-header"));
         for (final Job job : jobManager.getJobs()) {
             final JobProgress progress = jobManager.getProgress(player.getUniqueId(), job);
             final long neededXp = jobManager.getXpForNextLevel(progress.getLevel());
+            final String xpText = jobManager.isMaxLevel(progress.getLevel()) ? "MAX" : String.valueOf(progress.getXp());
+            final String neededText = jobManager.isMaxLevel(progress.getLevel()) ? "MAX" : String.valueOf(neededXp);
             player.sendMessage(configManager.getMessage(
                     "messages.info-entry",
                     Map.of(
                             "job", configManager.getJobDisplayName(job),
                             "level", String.valueOf(progress.getLevel()),
-                            "xp", String.valueOf(progress.getXp()),
-                            "needed", String.valueOf(neededXp)
+                            "xp", xpText,
+                            "needed", neededText
                     )
             ));
         }
+        return true;
+    }
+
+    private boolean handleConfigCommand(final CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(configManager.getMessage("messages.player-only"));
+            return true;
+        }
+
+        if (!player.hasPermission("customjobs.config")) {
+            player.sendMessage(configManager.getMessage("messages.no-permission"));
+            return true;
+        }
+
+        final boolean enabled = playerDataManager.toggleBossBar(player.getUniqueId());
+        playerDataManager.savePlayerData(player.getUniqueId());
+        if (!enabled) {
+            bossBarManager.hide(player);
+        }
+
+        player.sendMessage(configManager.deserialize(
+                enabled
+                        ? "<green>Deine Job-BossBar wurde aktiviert.</green>"
+                        : "<yellow>Deine Job-BossBar wurde deaktiviert.</yellow>"
+        ));
         return true;
     }
 
@@ -197,7 +244,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
     }
 
     private void registerCommands() {
-        registerCommand("customjobs");
+        registerCommand("jobcore");
         registerCommand("level");
     }
 
@@ -215,7 +262,10 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         final PluginManager pluginManager = getServer().getPluginManager();
         pluginManager.registerEvents(playerDataManager, this);
         pluginManager.registerEvents(levelMenuManager, this);
-        pluginManager.registerEvents(new NaturalLogListener(this, jobManager, configManager), this);
+        pluginManager.registerEvents(new PlacedBlockListener(jobManager, placedBlockTracker), this);
+        pluginManager.registerEvents(new NaturalLogListener(jobManager, configManager, placedBlockTracker), this);
+        pluginManager.registerEvents(new MinerListener(jobManager, placedBlockTracker), this);
+        pluginManager.registerEvents(new FarmerListener(jobManager, placedBlockTracker), this);
     }
 
     private void startTasks() {
@@ -252,3 +302,4 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         return new YamlPlayerDataStorage(this, Job.WOODCUTTER.getId());
     }
 }
+

@@ -1,4 +1,4 @@
-package de.deinname.customjobs;
+package de.derbenson.jobcore;
 
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -40,6 +40,7 @@ public final class YamlPlayerDataStorage implements PlayerDataStorage {
         try {
             final YamlConfiguration configuration = YamlConfiguration.loadConfiguration(file);
             final PlayerJobData data = new PlayerJobData();
+            data.setBossBarEnabled(configuration.getBoolean("settings.bossbar-enabled", true));
             final ConfigurationSection jobsSection = configuration.getConfigurationSection("jobs");
 
             if (jobsSection != null) {
@@ -72,6 +73,7 @@ public final class YamlPlayerDataStorage implements PlayerDataStorage {
     public void save(final UUID playerUuid, final PlayerJobData data) {
         final File file = getPlayerDataFile(playerUuid);
         final YamlConfiguration configuration = new YamlConfiguration();
+        configuration.set("settings.bossbar-enabled", data.isBossBarEnabled());
 
         for (final Map.Entry<String, JobProgress> entry : data.getProgressByJob().entrySet()) {
             final JobProgress progress = entry.getValue();
@@ -103,3 +105,4 @@ public final class YamlPlayerDataStorage implements PlayerDataStorage {
         return jobId.toLowerCase(Locale.ROOT);
     }
 }
+

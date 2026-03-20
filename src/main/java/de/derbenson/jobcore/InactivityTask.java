@@ -1,4 +1,4 @@
-package de.deinname.customjobs;
+package de.derbenson.jobcore;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -30,3 +30,4 @@ public final class InactivityTask extends BukkitRunnable {
         bossBarManager.hideInactiveBars(configManager.getBossBarInactivityMillis());
     }
 }
+

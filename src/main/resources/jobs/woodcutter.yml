@@ -1,0 +1,85 @@
+display-name: "Holzfäller"
+icon: "IRON_AXE"
+bossbar-color: "GREEN"
+
+placed-protection:
+  - OAK_LOG
+  - SPRUCE_LOG
+  - BIRCH_LOG
+  - JUNGLE_LOG
+  - ACACIA_LOG
+  - DARK_OAK_LOG
+  - MANGROVE_LOG
+  - CHERRY_LOG
+  - PALE_OAK_LOG
+  - CRIMSON_STEM
+  - WARPED_STEM
+  - BAMBOO_BLOCK
+
+xp-values:
+  OAK_LOG: 10
+  SPRUCE_LOG: 10
+  BIRCH_LOG: 10
+  JUNGLE_LOG: 11
+  ACACIA_LOG: 11
+  DARK_OAK_LOG: 12
+  MANGROVE_LOG: 13
+  CHERRY_LOG: 13
+  PALE_OAK_LOG: 14
+  CRIMSON_STEM: 12
+  WARPED_STEM: 12
+  BAMBOO_BLOCK: 9
+
+perks:
+  - level: 10
+    type: XP_BOOST
+    value: 0.02
+    display: "<green>+2% Job-XP"
+  - level: 25
+    type: DOUBLE_DROP_CHANCE
+    value: 0.02
+    display: "<green>2% Chance auf doppelte Drops"
+  - level: 50
+    type: BONUS_DROP_CHANCE
+    value: 0.05
+    display: "<green>5% Chance auf Bonus-Drops"
+
+path-rewards:
+  5:
+    - type: MESSAGE
+      display: "<aqua>Willkommens-Belohnung"
+      value: "<green>Du hast die ersten Stufen des Holzfäller-Pfads erreicht."
+  15:
+    - type: ITEM
+      material: OAK_SAPLING
+      amount: 8
+      display: "<green>8 Eichensetzlinge"
+  30:
+    - type: ITEM
+      material: STICK
+      amount: 16
+      display: "<green>16 Stöcke"
+  50:
+    - type: MESSAGE
+      display: "<gold>Meilenstein Level 50"
+      value: "<gold>Du hast Level 50 als Holzfäller erreicht."
+  75:
+    - type: ITEM
+      material: MOSS_BLOCK
+      amount: 4
+      display: "<green>4 Moosblöcke"
+  100:
+    - type: MESSAGE
+      display: "<yellow>Holzfäller-Meister"
+      value: "<yellow>Du hast den Holzfäller-Pfad auf Level 100 abgeschlossen."
+
+bonus-drops:
+  - material: STICK
+    amount: 2
+    weight: 50
+  - material: APPLE
+    amount: 1
+    weight: 35
+  - material: MOSS_BLOCK
+    amount: 1
+    weight: 15

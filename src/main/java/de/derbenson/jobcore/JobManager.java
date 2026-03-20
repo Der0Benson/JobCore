@@ -1,8 +1,9 @@
-package de.deinname.customjobs;
+package de.derbenson.jobcore;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -11,25 +12,30 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class JobManager {
+
+    private static final int MAX_LEVEL = 100;
 
     private final JavaPlugin plugin;
     private final ConfigManager configManager;
     private final PlayerDataManager playerDataManager;
     private final BossBarManager bossBarManager;
     private final Map<Job, Map<Material, Integer>> configuredXpValues = new HashMap<>();
+    private final Map<Job, Set<Material>> configuredPlacedProtection = new HashMap<>();
+    private final Map<Job, Set<Material>> configuredMatureHarvest = new HashMap<>();
     private final Map<Job, List<JobPerk>> configuredPerks = new HashMap<>();
     private final Map<Job, Map<Integer, List<PathReward>>> configuredPathRewards = new HashMap<>();
     private final Map<Job, List<BonusDropEntry>> configuredBonusDrops = new HashMap<>();
 
-    
     public JobManager(
             final JavaPlugin plugin,
             final ConfigManager configManager,
@@ -43,47 +49,74 @@ public final class JobManager {
         reload();
     }
 
-    
     public void reload() {
         configuredXpValues.clear();
+        configuredPlacedProtection.clear();
+        configuredMatureHarvest.clear();
         configuredPerks.clear();
         configuredPathRewards.clear();
         configuredBonusDrops.clear();
 
         for (final Job job : Job.values()) {
             configuredXpValues.put(job, loadXpValues(job));
+            configuredPlacedProtection.put(job, loadMaterialSet(job, "placed-protection", job.getDefaultPlacedProtectionMaterials()));
+            configuredMatureHarvest.put(job, loadMaterialSet(job, "mature-harvest", job.getDefaultMatureHarvestMaterials()));
             configuredPerks.put(job, loadPerks(job));
             configuredPathRewards.put(job, loadPathRewards(job));
             configuredBonusDrops.put(job, loadBonusDrops(job));
         }
     }
 
-    
     public List<Job> getJobs() {
         return List.of(Job.values());
     }
 
-    
+    public JobProgress getProgress(final UUID playerUuid, final Job job) {
+        final JobProgress progress = playerDataManager.getOrCreateData(playerUuid).getOrCreateProgress(job.getId());
+        clampProgress(progress);
+        return progress;
+    }
+
+    public int getMaxLevel() {
+        return MAX_LEVEL;
+    }
+
+    public boolean isMaxLevel(final int level) {
+        return level >= MAX_LEVEL;
+    }
+
+    public long getXpForNextLevel(final int level) {
+        if (isMaxLevel(level)) {
+            return 0L;
+        }
+        return configManager.getXpFormulaBase() + ((long) Math.max(0, level) * configManager.getXpFormulaPerLevel());
+    }
+
     public boolean isTrackedMaterial(final Job job, final Material material) {
         return getConfiguredXpValue(job, material) > 0;
     }
 
-    
     public int getConfiguredXpValue(final Job job, final Material material) {
         return configuredXpValues.getOrDefault(job, job.getDefaultXpValues()).getOrDefault(material, 0);
     }
 
-    
-    public JobProgress getProgress(final UUID playerUuid, final Job job) {
-        return playerDataManager.getOrCreateData(playerUuid).getOrCreateProgress(job.getId());
+    public boolean isPlacedProtected(final Job job, final Material material) {
+        return configuredPlacedProtection.getOrDefault(job, job.getDefaultPlacedProtectionMaterials()).contains(material);
     }
 
-    
-    public long getXpForNextLevel(final int level) {
-        return configManager.getXpFormulaBase() + ((long) Math.max(0, level) * configManager.getXpFormulaPerLevel());
+    public boolean requiresMatureHarvest(final Job job, final Material material) {
+        return configuredMatureHarvest.getOrDefault(job, job.getDefaultMatureHarvestMaterials()).contains(material);
     }
 
-    
+    public boolean shouldTrackPlacedBlock(final Material material) {
+        for (final Job job : Job.values()) {
+            if (isPlacedProtected(job, material)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public List<JobPerk> getPerks(final Job job) {
         return configuredPerks.getOrDefault(job, job.getDefaultPerks());
     }
@@ -100,13 +133,17 @@ public final class JobManager {
                 .sum();
     }
 
-    
     public int grantExperience(final Player player, final Job job, final int baseAmount) {
         if (baseAmount <= 0) {
             return 0;
         }
 
         final JobProgress progress = getProgress(player.getUniqueId(), job);
+        if (isMaxLevel(progress.getLevel())) {
+            clampProgress(progress);
+            return 0;
+        }
+
         final double xpBoost = getUnlockedPerkValue(job, progress.getLevel(), PerkType.XP_BOOST);
         final double adjusted = (baseAmount * (1.0D + xpBoost)) + progress.getFractionalXp();
         final int granted = Math.max(0, (int) Math.floor(adjusted));
@@ -121,7 +158,7 @@ public final class JobManager {
         boolean leveledUp = false;
         final List<Integer> reachedLevels = new ArrayList<>();
         long neededXp = getXpForNextLevel(progress.getLevel());
-        while (progress.getXp() >= neededXp) {
+        while (!isMaxLevel(progress.getLevel()) && neededXp > 0L && progress.getXp() >= neededXp) {
             progress.setXp(progress.getXp() - neededXp);
             progress.setLevel(progress.getLevel() + 1);
             reachedLevels.add(progress.getLevel());
@@ -129,14 +166,16 @@ public final class JobManager {
             neededXp = getXpForNextLevel(progress.getLevel());
         }
 
-        bossBarManager.showOrUpdate(
-                player,
-                job,
-                progress.getLevel(),
-                progress.getXp(),
-                neededXp,
-                granted
-        );
+        if (isMaxLevel(progress.getLevel())) {
+            clampProgress(progress);
+            neededXp = 0L;
+        }
+
+        if (playerDataManager.isBossBarEnabled(player.getUniqueId())) {
+            bossBarManager.showOrUpdate(player, job, progress.getLevel(), progress.getXp(), neededXp, granted);
+        } else {
+            bossBarManager.hide(player);
+        }
 
         if (leveledUp) {
             for (final int level : reachedLevels) {
@@ -149,14 +188,12 @@ public final class JobManager {
         return granted;
     }
 
-    
     public boolean shouldDoubleDrops(final UUID playerUuid, final Job job) {
         final int level = getProgress(playerUuid, job).getLevel();
         final double chance = getUnlockedPerkValue(job, level, PerkType.DOUBLE_DROP_CHANCE);
         return chance > 0.0D && ThreadLocalRandom.current().nextDouble() < chance;
     }
 
-    
     public Optional<BonusDropEntry> rollBonusDrop(final UUID playerUuid, final Job job) {
         final int level = getProgress(playerUuid, job).getLevel();
         final double chance = getUnlockedPerkValue(job, level, PerkType.BONUS_DROP_CHANCE);
@@ -197,9 +234,7 @@ public final class JobManager {
         final Map<Material, Integer> xpValues = new EnumMap<>(Material.class);
         xpValues.putAll(job.getDefaultXpValues());
 
-        final ConfigurationSection section = configManager.getConfiguration()
-                .getConfigurationSection("jobs." + job.getId() + ".xp-values");
-
+        final ConfigurationSection section = configManager.getJobConfiguration(job).getConfigurationSection("xp-values");
         if (section == null) {
             return Map.copyOf(xpValues);
         }
@@ -207,8 +242,7 @@ public final class JobManager {
         for (final String key : section.getKeys(false)) {
             final Material material = Material.matchMaterial(key);
             if (material == null) {
-                plugin.getLogger().warning("Unbekanntes Material in config.yml fuer Job "
-                        + job.getId() + ": " + key);
+                plugin.getLogger().warning("Unbekanntes Material in " + job.getId() + ".yml: " + key);
                 continue;
             }
 
@@ -218,8 +252,31 @@ public final class JobManager {
         return Map.copyOf(xpValues);
     }
 
+    private Set<Material> loadMaterialSet(final Job job, final String path, final Set<Material> defaults) {
+        final List<String> values = configManager.getJobConfiguration(job).getStringList(path);
+        if (values.isEmpty()) {
+            return Set.copyOf(defaults);
+        }
+
+        final Set<Material> materials = new HashSet<>();
+        for (final String value : values) {
+            final Material material = Material.matchMaterial(value);
+            if (material == null) {
+                plugin.getLogger().warning("Unbekanntes Material in " + job.getId() + ".yml unter " + path + ": " + value);
+                continue;
+            }
+            materials.add(material);
+        }
+
+        if (materials.isEmpty()) {
+            return Set.copyOf(defaults);
+        }
+
+        return Set.copyOf(materials);
+    }
+
     private List<JobPerk> loadPerks(final Job job) {
-        final List<Map<?, ?>> rawEntries = configManager.getConfiguration().getMapList("jobs." + job.getId() + ".perks");
+        final List<Map<?, ?>> rawEntries = configManager.getJobConfiguration(job).getMapList("perks");
         if (rawEntries.isEmpty()) {
             return job.getDefaultPerks();
         }
@@ -228,13 +285,11 @@ public final class JobManager {
         for (final Map<?, ?> entry : rawEntries) {
             final int level = parseInt(entry.get("level"), -1);
             final double value = parseDouble(entry.get("value"), -1.0D);
-            final Object displayValue = entry.containsKey("display") ? entry.get("display") : "";
-            final String display = String.valueOf(displayValue);
-            final String rawType = String.valueOf(entry.get("type"));
-            final Optional<PerkType> perkType = PerkType.fromConfig(rawType);
+            final String display = entry.containsKey("display") ? String.valueOf(entry.get("display")) : "";
+            final Optional<PerkType> perkType = PerkType.fromConfig(String.valueOf(entry.get("type")));
 
             if (level < 0 || value < 0.0D || display.isBlank() || perkType.isEmpty()) {
-                plugin.getLogger().warning("Ungueltiger Perk-Eintrag fuer Job " + job.getId() + ": " + entry);
+                plugin.getLogger().warning("UngÃ¼ltiger Perk-Eintrag fÃ¼r Job " + job.getId() + ": " + entry);
                 continue;
             }
 
@@ -250,9 +305,8 @@ public final class JobManager {
     }
 
     private Map<Integer, List<PathReward>> loadPathRewards(final Job job) {
-        final ConfigurationSection section = configManager.getConfiguration()
-                .getConfigurationSection("jobs." + job.getId() + ".path-rewards");
-
+        final FileConfiguration configuration = configManager.getJobConfiguration(job);
+        final ConfigurationSection section = configuration.getConfigurationSection("path-rewards");
         if (section == null) {
             return job.getDefaultPathRewards();
         }
@@ -261,21 +315,18 @@ public final class JobManager {
         for (final String key : section.getKeys(false)) {
             final int level = parseInt(key, -1);
             if (level <= 0) {
-                plugin.getLogger().warning("Ungültige Reward-Stufe für Job " + job.getId() + ": " + key);
+                plugin.getLogger().warning("UngÃ¼ltige Reward-Stufe fÃ¼r Job " + job.getId() + ": " + key);
                 continue;
             }
 
-            final List<Map<?, ?>> rawEntries = configManager.getConfiguration()
-                    .getMapList("jobs." + job.getId() + ".path-rewards." + key);
-
+            final List<Map<?, ?>> rawEntries = configuration.getMapList("path-rewards." + key);
             if (rawEntries.isEmpty()) {
                 continue;
             }
 
             final List<PathReward> rewards = new ArrayList<>();
             for (final Map<?, ?> entry : rawEntries) {
-                final Optional<PathReward> reward = parsePathReward(job, level, entry);
-                reward.ifPresent(rewards::add);
+                parsePathReward(job, level, entry).ifPresent(rewards::add);
             }
 
             if (!rewards.isEmpty()) {
@@ -291,22 +342,19 @@ public final class JobManager {
     }
 
     private List<BonusDropEntry> loadBonusDrops(final Job job) {
-        final List<Map<?, ?>> rawEntries = configManager.getConfiguration()
-                .getMapList("jobs." + job.getId() + ".bonus-drops");
-
+        final List<Map<?, ?>> rawEntries = configManager.getJobConfiguration(job).getMapList("bonus-drops");
         if (rawEntries.isEmpty()) {
             return job.getDefaultBonusDrops();
         }
 
         final List<BonusDropEntry> bonusDrops = new ArrayList<>();
         for (final Map<?, ?> entry : rawEntries) {
-            final String rawMaterial = String.valueOf(entry.get("material"));
-            final Material material = Material.matchMaterial(rawMaterial);
+            final Material material = Material.matchMaterial(String.valueOf(entry.get("material")));
             final int amount = parseInt(entry.get("amount"), 1);
             final int weight = parseInt(entry.get("weight"), 0);
 
             if (material == null || amount <= 0 || weight <= 0) {
-                plugin.getLogger().warning("Ungueltiger Bonus-Drop fuer Job " + job.getId() + ": " + entry);
+                plugin.getLogger().warning("UngÃ¼ltiger Bonus-Drop fÃ¼r Job " + job.getId() + ": " + entry);
                 continue;
             }
 
@@ -323,7 +371,7 @@ public final class JobManager {
     private Optional<PathReward> parsePathReward(final Job job, final int level, final Map<?, ?> entry) {
         final Optional<PathRewardType> rewardType = PathRewardType.fromConfig(String.valueOf(entry.get("type")));
         if (rewardType.isEmpty()) {
-            plugin.getLogger().warning("Ungültiger Reward-Typ für Job " + job.getId() + " auf Level " + level + ": " + entry);
+            plugin.getLogger().warning("UngÃ¼ltiger Reward-Typ fÃ¼r Job " + job.getId() + " auf Level " + level + ": " + entry);
             return Optional.empty();
         }
 
@@ -332,7 +380,7 @@ public final class JobManager {
             final Material material = Material.matchMaterial(String.valueOf(entry.get("material")));
             final int amount = parseInt(entry.get("amount"), 1);
             if (material == null || amount <= 0) {
-                plugin.getLogger().warning("Ungültiger Item-Reward für Job " + job.getId() + " auf Level " + level + ": " + entry);
+                plugin.getLogger().warning("UngÃ¼ltiger Item-Reward fÃ¼r Job " + job.getId() + " auf Level " + level + ": " + entry);
                 return Optional.empty();
             }
 
@@ -342,7 +390,7 @@ public final class JobManager {
 
         final String value = entry.containsKey("value") ? String.valueOf(entry.get("value")) : "";
         if (value.isBlank()) {
-            plugin.getLogger().warning("Reward ohne Wert für Job " + job.getId() + " auf Level " + level + ": " + entry);
+            plugin.getLogger().warning("Reward ohne Wert fÃ¼r Job " + job.getId() + " auf Level " + level + ": " + entry);
             return Optional.empty();
         }
 
@@ -373,7 +421,8 @@ public final class JobManager {
                             "job", configManager.getJobDisplayName(job),
                             "level", String.valueOf(level),
                             "reward", reward.display()
-                    )
+                    ),
+                    "<green>%job% Lv.%level% Belohnung: <white>%reward%</white>"
             ));
         }
     }
@@ -383,8 +432,8 @@ public final class JobManager {
             return;
         }
 
-        final Map<Integer, ItemStack> leftoverItems = player.getInventory().addItem(new ItemStack(reward.material(), reward.amount()));
-        for (final ItemStack leftover : leftoverItems.values()) {
+        final Map<Integer, ItemStack> leftovers = player.getInventory().addItem(new ItemStack(reward.material(), reward.amount()));
+        for (final ItemStack leftover : leftovers.values()) {
             player.getWorld().dropItemNaturally(player.getLocation(), leftover);
         }
     }
@@ -394,7 +443,6 @@ public final class JobManager {
         if (command.isBlank()) {
             return;
         }
-
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command.startsWith("/") ? command.substring(1) : command);
     }
 
@@ -406,7 +454,8 @@ public final class JobManager {
                             "job", configManager.getJobDisplayName(job),
                             "level", String.valueOf(level),
                             "reward", reward.display()
-                    )
+                    ),
+                    "<green>%job% Lv.%level% Belohnung: <white>%reward%</white>"
             ));
         }
 
@@ -469,4 +518,13 @@ public final class JobManager {
 
         return fallback;
     }
+
+    private void clampProgress(final JobProgress progress) {
+        if (progress.getLevel() >= MAX_LEVEL) {
+            progress.setLevel(MAX_LEVEL);
+            progress.setXp(0L);
+            progress.setFractionalXp(0.0D);
+        }
+    }
 }
+
