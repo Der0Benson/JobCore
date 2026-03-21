@@ -61,6 +61,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
 
             registerCommands();
             registerListeners();
+            registerPlaceholderExpansion();
             startTasks();
             loadAlreadyOnlinePlayers();
             leaderboardManager.warmUp();
@@ -648,6 +649,16 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         pluginManager.registerEvents(new WarriorListener(this, jobManager, configManager, debugManager, questManager), this);
         pluginManager.registerEvents(new AnglerListener(jobManager, configManager, debugManager, questManager), this);
         pluginManager.registerEvents(new AlchemistListener(jobManager, configManager, debugManager, questManager), this);
+        pluginManager.registerEvents(new QuestActivityListener(questManager), this);
+    }
+
+    private void registerPlaceholderExpansion() {
+        if (!Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+            return;
+        }
+
+        new JobCorePlaceholderExpansion(this, configManager, playerDataManager, jobManager, questManager).register();
+        getLogger().info("PlaceholderAPI-Erweiterung registriert.");
     }
 
     private void startTasks() {

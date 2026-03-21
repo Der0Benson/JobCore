@@ -97,6 +97,13 @@ public final class QuestManager {
         return Optional.ofNullable(activeQuestsById.get(questId.toLowerCase(Locale.ROOT)));
     }
 
+    public Optional<Quest> getActiveQuest(final QuestPeriod period) {
+        if (period == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(activeQuestsByPeriod.get(period));
+    }
+
     public PlayerQuestProgress getProgress(final UUID playerUuid, final String questId) {
         final Optional<Quest> quest = getQuest(questId);
         if (quest.isEmpty()) {
@@ -279,6 +286,25 @@ public final class QuestManager {
             final String target,
             final int amount
     ) {
+        recordObjectiveInternal(player, job, objectiveType, target, amount);
+    }
+
+    public void recordObjective(
+            final Player player,
+            final QuestObjectiveType objectiveType,
+            final String target,
+            final int amount
+    ) {
+        recordObjectiveInternal(player, null, objectiveType, target, amount);
+    }
+
+    private void recordObjectiveInternal(
+            final Player player,
+            final Job job,
+            final QuestObjectiveType objectiveType,
+            final String target,
+            final int amount
+    ) {
         if (amount <= 0) {
             return;
         }
@@ -289,7 +315,9 @@ public final class QuestManager {
         boolean completedQuest = false;
 
         for (final Quest quest : activeQuestsById.values()) {
-            if (quest.job() != job || quest.objectiveType() != objectiveType || !quest.matchesTarget(normalizedTarget)) {
+            if ((job != null && quest.job() != job)
+                    || quest.objectiveType() != objectiveType
+                    || !quest.matchesTarget(normalizedTarget)) {
                 continue;
             }
 

@@ -1,0 +1,25 @@
+# JobCore conditions for SimpleScore
+# Paste this into plugins/SimpleScore/conditions.yml
+
+jobcoreDailyQuestActive:
+  type: Equals
+  input: '%jobcore_quest_daily_status%'
+  value: 'active'
+  ignoreCase: true
+
+jobcoreWeeklyQuestActive:
+  type: Equals
+  input: '%jobcore_quest_weekly_status%'
+  value: 'active'
+  ignoreCase: true
+
+jobcoreMonthlyQuestActive:
+  type: Equals
+  input: '%jobcore_quest_monthly_status%'
+  value: 'active'
+  ignoreCase: true
+
+jobcoreNoQuestActive:
+  type: Equals
+  input: '%jobcore_quests_active%'
+  value: '0'

@@ -8,6 +8,36 @@ npc:
     - "<gray>Es gibt immer genau drei Missionen:"
     - "<aqua>eine Daily<gray>, <gold>eine Weekly<gray> und <light_purple>eine monatliche Mission</light_purple>"
     - "<gray>Die Auswahl rotiert automatisch pro Zyklus."
+  ui:
+    instruction-title: "<yellow>Steuerung"
+    instruction-lore:
+      - "<gray>Linksklick auf eine Karte: annehmen oder abgeben"
+      - "<gray>Rechtsklick auf eine aktive Karte: abbrechen"
+    summary-title: "<gold>Missionstafel</gold>"
+    summary-lore:
+      - "<gray>Aktiv: <white>%active%</white>"
+      - "<gray>Bereit: <white>%claimable%</white>"
+      - "<gray>Erledigt: <white>%claimed%/%total%</white>"
+    close-label: "<red>Schließen"
+    close-lore:
+      - "<gray>Schließt dieses Menü.</gray>"
+    quest-card-title: "%periodColor%%period% <gray>·</gray> <white>%quest%</white>"
+    quest-card-details:
+      - "<gray>Typ: <white>%period%</white>"
+      - "<gray>Job: <white>%job%</white>"
+      - "<gray>Fortschritt: <white>%progress%/%required%</white>"
+      - "<gray>Belohnung: <white>+%rewardXp% %job%-XP</white>"
+      - "<gray>Reset in <white>%reset%</white>"
+    status:
+      available: "<aqua>Verfügbar"
+      active: "<yellow>Aktiv"
+      claimable: "<gold>Abgabebereit"
+      claimed: "<green>Bereits erledigt"
+    action:
+      available: "<gray>Klicke, um diese Mission zu starten.</gray>"
+      active: "<gray>Rechtsklick, um sie abzubrechen.</gray>"
+      claimable: "<gray>Klicke, um die Belohnung abzuholen.</gray>"
+      claimed: "<gray>Warte auf den nächsten Zyklus.</gray>"
 
 missions:
   daily:
@@ -87,6 +117,33 @@ missions:
           - "GLOWSTONE_DUST"
           - "SPIDER_EYE"
           - "SUGAR"
+      backstube:
+        display-name: "Backstube"
+        icon: "BREAD"
+        job: "farmer"
+        objective-type: "CRAFT_ITEM"
+        required-amount: 8
+        reward-xp: 180
+        reward-message: "<yellow>Aus der kleinen Backstube kommt heute richtig guter Duft."
+        description:
+          - "<gray>Stelle <white>8 Brote</white> an der Werkbank her."
+        targets:
+          - "BREAD"
+      schmelzprobe:
+        display-name: "Schmelzprobe"
+        icon: "BLAST_FURNACE"
+        job: "miner"
+        objective-type: "SMELT_ITEM"
+        required-amount: 24
+        reward-xp: 190
+        reward-message: "<blue>Sauber geschmolzenes Material ist heute gefragt."
+        description:
+          - "<gray>Schmelze <white>24 Barren oder Glas</white>."
+        targets:
+          - "IRON_INGOT"
+          - "COPPER_INGOT"
+          - "GOLD_INGOT"
+          - "GLASS"
       nachtwache:
         display-name: "Nachtwache"
         icon: "IRON_SWORD"
@@ -204,6 +261,38 @@ missions:
           - "NAME_TAG"
           - "SADDLE"
           - "NAUTILUS_SHELL"
+      baulieferung:
+        display-name: "Baulieferung"
+        icon: "OAK_PLANKS"
+        job: "woodcutter"
+        objective-type: "PLACE_BLOCK"
+        required-amount: 64
+        reward-xp: 640
+        reward-message: "<green>Die neue Lieferung wurde sauber verbaut."
+        description:
+          - "<gray>Platziere <white>64 Baumaterialien</white> für das Dorf."
+        targets:
+          - "OAK_PLANKS"
+          - "SPRUCE_PLANKS"
+          - "BIRCH_PLANKS"
+          - "CHEST"
+          - "BARREL"
+      proviantwoche:
+        display-name: "Proviantwoche"
+        icon: "COOKED_BEEF"
+        job: "warrior"
+        objective-type: "CONSUME_ITEM"
+        required-amount: 18
+        reward-xp: 620
+        reward-message: "<red>Eine gut versorgte Wache hält länger durch."
+        description:
+          - "<gray>Verbrauche <white>18 Verpflegungsstücke</white> auf deinen Runden."
+        targets:
+          - "BREAD"
+          - "COOKED_BEEF"
+          - "COOKED_CHICKEN"
+          - "BAKED_POTATO"
+          - "GOLDEN_CARROT"
       rezeptwoche:
         display-name: "Rezeptwoche"
         icon: "GLASS_BOTTLE"
@@ -319,6 +408,23 @@ missions:
           - "PHANTOM_MEMBRANE"
           - "GOLDEN_CARROT"
           - "GLISTERING_MELON_SLICE"
+      runentisch:
+        display-name: "Runentisch"
+        icon: "ENCHANTING_TABLE"
+        job: "warrior"
+        objective-type: "ENCHANT_ITEM"
+        required-amount: 12
+        reward-xp: 2250
+        reward-message: "<gold>Der Runentisch glüht. Deine Ausrüstung wächst diesen Monat spürbar."
+        description:
+          - "<gray>Verzaubere <white>12 Ausrüstungsteile</white>."
+        targets:
+          - "IRON_SWORD"
+          - "DIAMOND_SWORD"
+          - "BOW"
+          - "FISHING_ROD"
+          - "DIAMOND_PICKAXE"
+          - "DIAMOND_AXE"
       schattenkrieg:
         display-name: "Schattenkrieg"
         icon: "NETHERITE_SWORD"

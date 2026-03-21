@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -49,15 +50,12 @@ public final class LevelMenuManager implements Listener {
     private static final int LEADERBOARD_SUMMARY_SLOT = 49;
     private static final List<Integer> LEADERBOARD_JOB_SLOTS = List.of(10, 13, 16, 28, 31, 34);
     private static final int LEADERBOARD_QUEST_SLOT = 22;
+
     private final ConfigManager configManager;
     private final JobManager jobManager;
     private final LeaderboardManager leaderboardManager;
     private final DecimalFormat percentFormat = new DecimalFormat("0.##%");
-    private final List<DummyJobCard> dummyJobs = List.of(
-            new DummyJobCard("J\u00e4ger", Material.BOW, "Mobs, Beute und Jagdserien.")
-    );
 
-    
     public LevelMenuManager(
             final ConfigManager configManager,
             final JobManager jobManager,
@@ -68,18 +66,22 @@ public final class LevelMenuManager implements Listener {
         this.leaderboardManager = leaderboardManager;
     }
 
-    
     public void openOverview(final Player player) {
         final LevelMenuHolder holder = new LevelMenuHolder(LevelMenuView.OVERVIEW, null, 0);
         final Inventory inventory = Bukkit.createInventory(holder, SIZE, configManager.getLevelOverviewTitle());
         holder.setInventory(inventory);
 
         fillOverviewBackground(inventory);
-        inventory.setItem(OVERVIEW_HEADER_SLOT, createItem(Material.BOOK, "<gold>Job-Auswahl</gold>", List.of(
-                "<gray>W\u00e4hle einen Job, dessen Pfad du genauer sehen m\u00f6chtest.",
-                "<gray><white>Holzf\u00e4ller</white>, <white>Miner</white>, <white>Farmer</white>, <white>Krieger</white>, <white>Angler</white> und <white>Alchemist</white> sind spielbar.",
-                "<gray>Weitere Jobs sind bereits als Platzhalter vorbereitet."
-        ), false));
+        inventory.setItem(OVERVIEW_HEADER_SLOT, createItem(
+                Material.BOOK,
+                menuString("overview-header-title", "<gold>Job-Auswahl</gold>"),
+                menuList("overview-header-lore", List.of(
+                        "<gray>Wahle einen Job, dessen Pfad du genauer sehen mochtest.",
+                        "<gray><white>Holzfaller</white>, <white>Miner</white>, <white>Farmer</white>, <white>Krieger</white>, <white>Angler</white> und <white>Alchemist</white> sind spielbar.",
+                        "<gray>Weitere Jobs sind bereits als Platzhalter vorbereitet."
+                )),
+                false
+        ));
         placeOverviewSummary(player, inventory);
         placeOverviewJobs(player, inventory);
         placeOverviewLeaderboardButton(inventory);
@@ -90,7 +92,7 @@ public final class LevelMenuManager implements Listener {
 
     public void openLeaderboard(final Player player) {
         final LevelMenuHolder holder = new LevelMenuHolder(LevelMenuView.LEADERBOARD, null, 0);
-        final Inventory inventory = Bukkit.createInventory(holder, SIZE, "Bestenlisten");
+        final Inventory inventory = Bukkit.createInventory(holder, SIZE, menuString("leaderboard-title", "Bestenlisten"));
         holder.setInventory(inventory);
 
         fillOverviewBackground(inventory);
@@ -102,7 +104,6 @@ public final class LevelMenuManager implements Listener {
         player.openInventory(inventory);
     }
 
-    
     public void openPath(final Player player, final Job job, final int requestedPage) {
         final int maxLevel = getMaxDisplayLevel();
         final int totalPages = getTotalPages(maxLevel);
@@ -167,6 +168,7 @@ public final class LevelMenuManager implements Listener {
         }
 
         final List<Job> jobs = visibleJobs();
+        final List<DummyJobCard> dummyJobs = getDummyJobs();
         for (int index = 0; index < jobs.size() && index < OVERVIEW_JOB_SLOTS.size(); index++) {
             if (slot == OVERVIEW_JOB_SLOTS.get(index)) {
                 openPath(player, jobs.get(index), 0);
@@ -177,10 +179,7 @@ public final class LevelMenuManager implements Listener {
         for (int index = jobs.size(); index < OVERVIEW_JOB_SLOTS.size() && (index - jobs.size()) < dummyJobs.size(); index++) {
             if (slot == OVERVIEW_JOB_SLOTS.get(index)) {
                 final DummyJobCard dummyJobCard = dummyJobs.get(index - jobs.size());
-                player.sendMessage(configManager.deserialize(
-                        "<yellow>%job% ist noch ein Platzhalter und wird sp\u00e4ter freigeschaltet.</yellow>",
-                        java.util.Map.of("job", dummyJobCard.displayName())
-                ));
+                player.sendMessage(configManager.deserialize(dummyJobCard.clickMessage(), Map.of("job", dummyJobCard.displayName())));
                 return;
             }
         }
@@ -256,12 +255,26 @@ public final class LevelMenuManager implements Listener {
             }
         }
 
-        inventory.setItem(OVERVIEW_INFO_SLOT, createItem(Material.NETHER_STAR, "<green>Dein Fortschritt</green>", List.of(
-                "<gray>Gesamtlevel: <white>" + totalLevel + "</white>",
-                "<gray>Verf\u00fcgbare Pfade: <white>" + jobManager.getJobs().size() + "</white>",
-                "<gray>H\u00f6chster Job: <white>" + (highestJob == null ? "Noch keiner" : configManager.getJobDisplayName(highestJob)) + "</white>",
-                "<yellow>Klicke auf einen Job, um die Detailansicht zu \u00f6ffnen."
-        ), false));
+        inventory.setItem(OVERVIEW_INFO_SLOT, createItem(
+                Material.NETHER_STAR,
+                menuString("overview-summary-title", "<green>Dein Fortschritt</green>"),
+                formatList(
+                        menuList("overview-summary-lore", List.of(
+                                "<gray>Gesamtlevel: <white>%totalLevel%</white>",
+                                "<gray>Verfugbare Pfade: <white>%jobCount%</white>",
+                                "<gray>Hochster Job: <white>%highestJob%</white>",
+                                "<yellow>Klicke auf einen Job, um die Detailansicht zu offnen."
+                        )),
+                        Map.of(
+                                "totalLevel", String.valueOf(totalLevel),
+                                "jobCount", String.valueOf(jobManager.getJobs().size()),
+                                "highestJob", highestJob == null
+                                        ? menuString("overview-summary-no-job", "Noch keiner")
+                                        : configManager.getJobDisplayName(highestJob)
+                        )
+                ),
+                false
+        ));
     }
 
     private void placeOverviewJobs(final Player player, final Inventory inventory) {
@@ -270,6 +283,7 @@ public final class LevelMenuManager implements Listener {
             inventory.setItem(OVERVIEW_JOB_SLOTS.get(index++), createRealJobItem(player, job));
         }
 
+        final List<DummyJobCard> dummyJobs = getDummyJobs();
         for (final DummyJobCard dummyJobCard : dummyJobs) {
             if (index >= OVERVIEW_JOB_SLOTS.size()) {
                 break;
@@ -281,12 +295,12 @@ public final class LevelMenuManager implements Listener {
     private void placeOverviewLeaderboardButton(final Inventory inventory) {
         inventory.setItem(OVERVIEW_LEADERBOARD_SLOT, createItem(
                 Material.TOTEM_OF_UNDYING,
-                "<gold>Bestenlisten</gold>",
-                List.of(
-                        "<gray>Sieh dir die stärksten Spieler pro Job an.",
-                        "<gray>Außerdem findest du hier die aktivsten Questspieler.",
-                        "<yellow>Klicke, um die Bestenlisten zu öffnen."
-                ),
+                menuString("overview-leaderboard-title", "<gold>Bestenlisten</gold>"),
+                menuList("overview-leaderboard-lore", List.of(
+                        "<gray>Sieh dir die starksten Spieler pro Job an.",
+                        "<gray>Ausserdem findest du hier die aktivsten Questspieler.",
+                        "<yellow>Klicke, um die Bestenlisten zu offnen."
+                )),
                 true
         ));
     }
@@ -325,14 +339,16 @@ public final class LevelMenuManager implements Listener {
         inventory.setItem(BACK_SLOT, createItem(
                 Material.BOOK,
                 configManager.getLevelMenuBackLabel(),
-                List.of("<gray>Zur Startseite mit allen Jobs zur\u00fcckkehren."),
+                menuList("path-back-lore", List.of("<gray>Zur Startseite mit allen Jobs zuruckkehren.")),
                 false
         ));
         inventory.setItem(PREVIOUS_SLOT, createNavigationItem(
                 page > 0,
                 Material.ARROW,
                 configManager.getLevelMenuPreviousPageLabel(),
-                page > 0 ? "<gray>\u00d6ffnet die vorige Pfad-Seite.</gray>" : "<dark_gray>Du bist bereits auf der ersten Seite.</dark_gray>"
+                page > 0
+                        ? menuString("path-previous-enabled-lore", "<gray>Offnet die vorige Pfad-Seite.</gray>")
+                        : menuString("path-previous-disabled-lore", "<dark_gray>Du bist bereits auf der ersten Seite.</dark_gray>")
         ));
         inventory.setItem(SUMMARY_SLOT, createItem(
                 configManager.getJobIcon(job),
@@ -344,12 +360,14 @@ public final class LevelMenuManager implements Listener {
                 page < (totalPages - 1),
                 Material.SPECTRAL_ARROW,
                 configManager.getLevelMenuNextPageLabel(),
-                page < (totalPages - 1) ? "<gray>\u00d6ffnet die n\u00e4chste Pfad-Seite.</gray>" : "<dark_gray>Dies ist bereits die letzte Seite.</dark_gray>"
+                page < (totalPages - 1)
+                        ? menuString("path-next-enabled-lore", "<gray>Offnet die nachste Pfad-Seite.</gray>")
+                        : menuString("path-next-disabled-lore", "<dark_gray>Dies ist bereits die letzte Seite.</dark_gray>")
         ));
         inventory.setItem(PATH_LEADERBOARD_SLOT, createItem(
                 Material.TOTEM_OF_UNDYING,
-                "<gold>Bestenlisten</gold>",
-                List.of("<gray>Öffnet die globalen Job- und Quest-Rankings.</gray>"),
+                menuString("path-leaderboard-title", "<gold>Bestenlisten</gold>"),
+                menuList("path-leaderboard-lore", List.of("<gray>Offnet die globalen Job- und Quest-Rankings.</gray>")),
                 true
         ));
     }
@@ -357,11 +375,11 @@ public final class LevelMenuManager implements Listener {
     private void placeLeaderboardHeader(final Inventory inventory) {
         inventory.setItem(LEADERBOARD_HEADER_SLOT, createItem(
                 Material.TOTEM_OF_UNDYING,
-                "<gold>Bestenlisten</gold>",
-                List.of(
-                        "<gray>Hier siehst du die stärksten Spieler pro Job.",
-                        "<gray>In der Mitte findest du außerdem die aktivsten Questspieler."
-                ),
+                menuString("leaderboard-header-title", "<gold>Bestenlisten</gold>"),
+                menuList("leaderboard-header-lore", List.of(
+                        "<gray>Hier siehst du die starksten Spieler pro Job.",
+                        "<gray>In der Mitte findest du ausserdem die aktivsten Questspieler."
+                )),
                 true
         ));
     }
@@ -380,17 +398,17 @@ public final class LevelMenuManager implements Listener {
         inventory.setItem(LEADERBOARD_BACK_SLOT, createItem(
                 Material.BOOK,
                 configManager.getLevelMenuBackLabel(),
-                List.of("<gray>Zurück zur Job-Auswahl.</gray>"),
+                menuList("leaderboard-back-lore", List.of("<gray>Zuruck zur Job-Auswahl.</gray>")),
                 false
         ));
         inventory.setItem(LEADERBOARD_SUMMARY_SLOT, createItem(
                 Material.NETHER_STAR,
-                "<green>Ranking-Info</green>",
-                List.of(
+                menuString("leaderboard-summary-title", "<green>Ranking-Info</green>"),
+                menuList("leaderboard-summary-lore", List.of(
                         "<gray>Job-Rankings sortieren nach <white>Level</white> und dann <white>XP</white>.",
                         "<gray>Quest-Ranking sortiert nach <white>abgegebenen Missionen</white>.",
-                        "<yellow>Klicke auf einen Job, um direkt seinen Pfad zu öffnen."
-                ),
+                        "<yellow>Klicke auf einen Job, um direkt seinen Pfad zu offnen."
+                )),
                 false
         ));
     }
@@ -408,26 +426,45 @@ public final class LevelMenuManager implements Listener {
             final int pageEndLevel
     ) {
         final List<String> lore = new ArrayList<>();
-        lore.add("<gray>Level: <white>" + progress.getLevel() + "</white>");
+        lore.add(format(menuString("path-summary-level", "<gray>Level: <white>%level%</white>"), Map.of(
+                "level", String.valueOf(progress.getLevel())
+        )));
         lore.add(jobManager.isMaxLevel(progress.getLevel())
-                ? "<gray>XP: <white>MAX/MAX</white>"
-                : "<gray>XP: <white>" + progress.getXp() + "/" + neededXp + "</white>");
-        lore.add("<gray>Aktive XP-Boni: <white>" + percentFormat.format(jobManager.getUnlockedPerkValue(job, progress.getLevel(), PerkType.XP_BOOST)) + "</white>");
-        lore.add("<gray>Seite: <white>" + currentPage + "/" + totalPages + "</white>");
-        lore.add("<gray>Bereich: <white>Lv." + pageStartLevel + " bis Lv." + pageEndLevel + "</white>");
+                ? menuString("path-summary-xp-max", "<gray>XP: <white>MAX/MAX</white>")
+                : format(menuString("path-summary-xp", "<gray>XP: <white>%xp%/%needed%</white>"), Map.of(
+                "xp", String.valueOf(progress.getXp()),
+                "needed", String.valueOf(neededXp)
+        )));
+        lore.add(format(menuString("path-summary-xp-boost", "<gray>Aktive XP-Boni: <white>%boost%</white>"), Map.of(
+                "boost", percentFormat.format(jobManager.getUnlockedPerkValue(job, progress.getLevel(), PerkType.XP_BOOST))
+        )));
+        lore.add(format(menuString("path-summary-page", "<gray>Seite: <white>%page%/%pages%</white>"), Map.of(
+                "page", String.valueOf(currentPage),
+                "pages", String.valueOf(totalPages)
+        )));
+        lore.add(format(menuString("path-summary-range", "<gray>Bereich: <white>Lv.%start% bis Lv.%end%</white>"), Map.of(
+                "start", String.valueOf(pageStartLevel),
+                "end", String.valueOf(pageEndLevel)
+        )));
         if (nextPerk == null) {
-            lore.add("<green>Alle aktuellen Standard-Perks sind freigeschaltet.");
+            lore.add(menuString("path-summary-next-perk-none", "<green>Alle aktuellen Standard-Perks sind freigeschaltet."));
         } else {
-            lore.add("<gray>N\u00e4chster Perk: <white>Lv." + nextPerk.level() + "</white>");
+            lore.add(format(menuString("path-summary-next-perk", "<gray>Nachster Perk: <white>Lv.%level%</white>"), Map.of(
+                    "level", String.valueOf(nextPerk.level())
+            )));
             lore.add(nextPerk.display());
         }
         if (nextRewardLevel == null || nextRewards.isEmpty()) {
-            lore.add("<green>Keine weitere Pfad-Belohnung definiert.");
+            lore.add(menuString("path-summary-next-reward-none", "<green>Keine weitere Pfad-Belohnung definiert."));
         } else {
-            lore.add("<gray>N\u00e4chste Belohnung: <white>Lv." + nextRewardLevel + "</white>");
+            lore.add(format(menuString("path-summary-next-reward", "<gray>Nachste Belohnung: <white>Lv.%level%</white>"), Map.of(
+                    "level", String.valueOf(nextRewardLevel)
+            )));
             lore.add(nextRewards.getFirst().display());
             if (nextRewards.size() > 1) {
-                lore.add("<gray>+<white>" + (nextRewards.size() - 1) + "</white> weitere Belohnungen");
+                lore.add(format(menuString("path-summary-more-rewards", "<gray>+<white>%count%</white> weitere Belohnungen"), Map.of(
+                        "count", String.valueOf(nextRewards.size() - 1)
+                )));
             }
         }
         return lore;
@@ -441,27 +478,33 @@ public final class LevelMenuManager implements Listener {
         final List<PathReward> rewards = jobManager.getPathRewards(job, level);
         final boolean specialLevel = !perks.isEmpty() || !rewards.isEmpty();
 
-        final String stateText = unlocked ? "<green>Freigeschaltet" : next ? "<yellow>N\u00e4chstes Ziel" : "<gray>Gesperrt";
+        final String stateText = unlocked
+                ? menuString("level-node-state-unlocked", "<green>Freigeschaltet")
+                : next
+                ? menuString("level-node-state-next", "<yellow>Nachstes Ziel")
+                : menuString("level-node-state-locked", "<gray>Gesperrt");
         final List<String> lore = new ArrayList<>();
         lore.add(stateText);
         if (next) {
             final long missingXp = Math.max(0L, jobManager.getXpForNextLevel(currentLevel) - progress.getXp());
-            lore.add("<gray>Fehlende XP: <white>" + missingXp + "</white>");
+            lore.add(format(menuString("level-node-missing-xp", "<gray>Fehlende XP: <white>%xp%</white>"), Map.of(
+                    "xp", String.valueOf(missingXp)
+            )));
         }
 
         if (perks.isEmpty() && rewards.isEmpty()) {
-            lore.add("<dark_gray>Keine neue Belohnung auf dieser Stufe.");
+            lore.add(menuString("level-node-no-reward", "<dark_gray>Keine neue Belohnung auf dieser Stufe."));
         }
 
         if (!perks.isEmpty()) {
-            lore.add("<gray>Perks:");
+            lore.add(menuString("level-node-perks-label", "<gray>Perks:"));
             for (final JobPerk perk : perks) {
                 lore.add(perk.display());
             }
         }
 
         if (!rewards.isEmpty()) {
-            lore.add("<gray>Belohnungen:");
+            lore.add(menuString("level-node-rewards-label", "<gray>Belohnungen:"));
             for (final PathReward reward : rewards) {
                 lore.add(reward.display());
             }
@@ -469,7 +512,10 @@ public final class LevelMenuManager implements Listener {
 
         return createItem(
                 getNodeMaterial(unlocked, specialLevel),
-                (unlocked ? "<green>" : next ? "<yellow>" : "<gray>") + "Level " + level,
+                format(menuString("level-node-title", "%color%Level %level%"), Map.of(
+                        "color", unlocked ? "<green>" : next ? "<yellow>" : "<gray>",
+                        "level", String.valueOf(level)
+                )),
                 lore,
                 specialLevel
         );
@@ -525,8 +571,11 @@ public final class LevelMenuManager implements Listener {
         final JobProgress progress = jobManager.getProgress(player.getUniqueId(), job);
         final long neededXp = jobManager.getXpForNextLevel(progress.getLevel());
         final String progressText = jobManager.isMaxLevel(progress.getLevel())
-                ? "<gray>XP: <white>MAX/MAX</white>"
-                : "<gray>XP: <white>" + progress.getXp() + "/" + neededXp + "</white>";
+                ? menuString("path-summary-xp-max", "<gray>XP: <white>MAX/MAX</white>")
+                : format(menuString("path-summary-xp", "<gray>XP: <white>%xp%/%needed%</white>"), Map.of(
+                "xp", String.valueOf(progress.getXp()),
+                "needed", String.valueOf(neededXp)
+        ));
         final long unlockedPerks = jobManager.getPerks(job).stream()
                 .filter(perk -> progress.getLevel() >= perk.level())
                 .count();
@@ -538,13 +587,24 @@ public final class LevelMenuManager implements Listener {
         return createItem(
                 configManager.getJobIcon(job),
                 "<green>" + configManager.getJobDisplayName(job) + "</green>",
-                List.of(
-                        "<gray>Level: <white>" + progress.getLevel() + "</white>",
-                        progressText,
-                        "<gray>Freigeschaltete Perks: <white>" + unlockedPerks + "/" + jobManager.getPerks(job).size() + "</white>",
-                        "<gray>Belohnungs-Stufen: <white>" + unlockedRewards + "</white>",
-                        "<green>Verf\u00fcgbar",
-                        "<yellow>Klicke f\u00fcr den detaillierten Pfad."
+                formatList(
+                        menuList("real-job-lore", List.of(
+                                "<gray>Level: <white>%level%</white>",
+                                "%xpLine%",
+                                "<gray>Freigeschaltete Perks: <white>%unlockedPerks%/%totalPerks%</white>",
+                                "<gray>Belohnungs-Stufen: <white>%rewardLevels%</white>",
+                                "%statusLine%",
+                                "%clickLine%"
+                        )),
+                        Map.of(
+                                "level", String.valueOf(progress.getLevel()),
+                                "xpLine", progressText,
+                                "unlockedPerks", String.valueOf(unlockedPerks),
+                                "totalPerks", String.valueOf(jobManager.getPerks(job).size()),
+                                "rewardLevels", String.valueOf(unlockedRewards),
+                                "statusLine", menuString("real-job-status", "<green>Verfugbar"),
+                                "clickLine", menuString("real-job-click-lore", "<yellow>Klicke fur den detaillierten Pfad.")
+                        )
                 ),
                 true
         );
@@ -556,17 +616,21 @@ public final class LevelMenuManager implements Listener {
 
         if (topEntries.isEmpty()) {
             lore.add(leaderboardManager.isRefreshing()
-                    ? "<gray>Ranking wird gerade aktualisiert...</gray>"
-                    : "<dark_gray>Noch keine Einträge vorhanden.");
+                    ? menuString("leaderboard-job-refreshing", "<gray>Ranking wird gerade aktualisiert...</gray>")
+                    : menuString("leaderboard-job-empty", "<dark_gray>Noch keine Eintrage vorhanden."));
         } else {
             int rank = 1;
             for (final LeaderboardManager.JobLeaderboardEntry entry : topEntries) {
-                lore.add("<gray>#" + rank++ + " <white>" + entry.playerName() + "</white> <gray>· Lv.<white>"
-                        + entry.level() + "</white> <gray>· <white>" + entry.xp() + " XP</white>");
+                lore.add(format(menuString("leaderboard-job-entry", "<gray>#%rank% <white>%player%</white> <gray>. Lv.<white>%level%</white> <gray>. <white>%xp% XP</white>"), Map.of(
+                        "rank", String.valueOf(rank++),
+                        "player", entry.playerName(),
+                        "level", String.valueOf(entry.level()),
+                        "xp", String.valueOf(entry.xp())
+                )));
             }
         }
 
-        lore.add("<yellow>Klicke, um den Pfad zu öffnen.");
+        lore.add(menuString("leaderboard-job-click-lore", "<yellow>Klicke, um den Pfad zu offnen."));
 
         return createItem(
                 configManager.getJobIcon(job),
@@ -582,19 +646,22 @@ public final class LevelMenuManager implements Listener {
 
         if (topEntries.isEmpty()) {
             lore.add(leaderboardManager.isRefreshing()
-                    ? "<gray>Ranking wird gerade aktualisiert...</gray>"
-                    : "<dark_gray>Noch keine Quest-Abgaben vorhanden.");
+                    ? menuString("quest-leaderboard-refreshing", "<gray>Ranking wird gerade aktualisiert...</gray>")
+                    : menuString("quest-leaderboard-empty", "<dark_gray>Noch keine Quest-Abgaben vorhanden."));
         } else {
             int rank = 1;
             for (final LeaderboardManager.QuestLeaderboardEntry entry : topEntries) {
-                lore.add("<gray>#" + rank++ + " <white>" + entry.playerName() + "</white> <gray>· <white>"
-                        + entry.totalClaims() + "</white> abgeschlossene Missionen");
+                lore.add(format(menuString("quest-leaderboard-entry", "<gray>#%rank% <white>%player%</white> <gray>. <white>%count%</white> abgeschlossene Missionen"), Map.of(
+                        "rank", String.valueOf(rank++),
+                        "player", entry.playerName(),
+                        "count", String.valueOf(entry.totalClaims())
+                )));
             }
         }
 
         return createItem(
                 Material.WRITABLE_BOOK,
-                "<light_purple>Questspieler</light_purple>",
+                menuString("quest-leaderboard-title", "<light_purple>Questspieler</light_purple>"),
                 lore,
                 true
         );
@@ -604,10 +671,16 @@ public final class LevelMenuManager implements Listener {
         return createItem(
                 dummyJobCard.icon(),
                 "<gray>" + dummyJobCard.displayName() + "</gray>",
-                List.of(
-                        "<gray>" + dummyJobCard.description() + "</gray>",
-                        "<dark_gray>Demn\u00e4chst verf\u00fcgbar",
-                        "<dark_gray>Noch kein spielbarer Pfad hinterlegt."
+                formatList(
+                        menuList("dummy-job-lore", List.of(
+                                "<gray>%description%</gray>",
+                                "<dark_gray>Demnachst verfugbar",
+                                "<dark_gray>Noch kein spielbarer Pfad hinterlegt."
+                        )),
+                        Map.of(
+                                "job", dummyJobCard.displayName(),
+                                "description", dummyJobCard.description()
+                        )
                 ),
                 false
         );
@@ -625,7 +698,7 @@ public final class LevelMenuManager implements Listener {
         inventory.setItem(CLOSE_SLOT, createItem(
                 Material.BARRIER,
                 configManager.getLevelMenuCloseLabel(),
-                List.of("<gray>Schlie\u00dft dieses Men\u00fc."),
+                menuList("close-lore", List.of("<gray>Schliesst dieses Menu.</gray>")),
                 false
         ));
     }
@@ -638,7 +711,7 @@ public final class LevelMenuManager implements Listener {
     ) {
         return createItem(
                 enabled ? enabledMaterial : Material.GRAY_DYE,
-                enabled ? title : "<gray>Ausgegraut</gray>",
+                enabled ? title : menuString("navigation-disabled-title", "<gray>Ausgegraut</gray>"),
                 List.of(lore),
                 false
         );
@@ -675,12 +748,63 @@ public final class LevelMenuManager implements Listener {
         return itemStack;
     }
 
+    private String menuString(final String path, final String fallback) {
+        return configManager.getConfiguration().getString("menu." + path, fallback);
+    }
+
+    private List<String> menuList(final String path, final List<String> fallback) {
+        final List<String> configured = configManager.getConfiguration().getStringList("menu." + path);
+        return configured.isEmpty() ? fallback : configured;
+    }
+
+    private String format(final String template, final Map<String, String> placeholders) {
+        String result = template;
+        for (final Map.Entry<String, String> entry : placeholders.entrySet()) {
+            result = result.replace('%' + entry.getKey() + '%', entry.getValue());
+        }
+        return result;
+    }
+
+    private List<String> formatList(final List<String> templates, final Map<String, String> placeholders) {
+        final List<String> lines = new ArrayList<>(templates.size());
+        for (final String template : templates) {
+            lines.add(format(template, placeholders));
+        }
+        return lines;
+    }
+
+    private List<DummyJobCard> getDummyJobs() {
+        final ConfigurationSection section = configManager.getConfiguration().getConfigurationSection("menu.dummy-jobs");
+        final String defaultClickMessage = menuString("dummy-job-click-message", "<yellow>%job% ist noch ein Platzhalter und wird spater freigeschaltet.</yellow>");
+        if (section == null) {
+            return List.of(new DummyJobCard("Jager", Material.BOW, "Mobs, Beute und Jagdserien.", defaultClickMessage));
+        }
+
+        final List<DummyJobCard> cards = new ArrayList<>();
+        for (final String key : section.getKeys(false)) {
+            final ConfigurationSection cardSection = section.getConfigurationSection(key);
+            if (cardSection == null) {
+                continue;
+            }
+
+            final Material icon = Material.matchMaterial(cardSection.getString("icon", "BARRIER"));
+            cards.add(new DummyJobCard(
+                    cardSection.getString("display-name", key),
+                    icon == null ? Material.BARRIER : icon,
+                    cardSection.getString("description", ""),
+                    cardSection.getString("click-message", defaultClickMessage)
+            ));
+        }
+
+        return cards.isEmpty()
+                ? List.of(new DummyJobCard("Jager", Material.BOW, "Mobs, Beute und Jagdserien.", defaultClickMessage))
+                : List.copyOf(cards);
+    }
+
     private Component withoutItalic(final Component component) {
         return component.decoration(TextDecoration.ITALIC, false);
     }
 
-    private record DummyJobCard(String displayName, Material icon, String description) {
+    private record DummyJobCard(String displayName, Material icon, String description, String clickMessage) {
     }
 }
-
-

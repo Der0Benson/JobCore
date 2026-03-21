@@ -38,6 +38,7 @@ public final class QuestMenuManager implements Listener {
             QuestPeriod.WEEKLY, 22,
             QuestPeriod.MONTHLY, 25
     );
+
     private final ConfigManager configManager;
     private final QuestManager questManager;
     private final ZoneId zoneId;
@@ -185,39 +186,43 @@ public final class QuestMenuManager implements Listener {
     private void placeFooter(final Player player, final Inventory inventory) {
         inventory.setItem(INSTRUCTION_SLOT, createItemStack(
                 Material.PAPER,
-                "<yellow>Steuerung",
-                List.of(
+                questUiString("instruction-title", "<yellow>Steuerung"),
+                questUiList("instruction-lore", List.of(
                         "<gray>Linksklick auf eine Karte: annehmen oder abgeben",
                         "<gray>Rechtsklick auf eine aktive Karte: abbrechen"
-                ),
+                )),
                 false
         ));
 
         inventory.setItem(SUMMARY_SLOT, createItemStack(
                 Material.NETHER_STAR,
-                configManager.getQuestConfiguration().getString("npc.header-title", "<gold>Missionstafel"),
+                questUiString("summary-title", configManager.getQuestConfiguration().getString("npc.header-title", "<gold>Missionstafel")),
                 buildSummaryLore(player),
                 false
         ));
 
         inventory.setItem(CLOSE_SLOT, createItemStack(
                 Material.BARRIER,
-                "<red>Schließen",
-                List.of("<gray>Schließt dieses Menü.</gray>"),
+                questUiString("close-label", "<red>Schliessen"),
+                questUiList("close-lore", List.of("<gray>Schliesst dieses Menu.</gray>")),
                 false
         ));
     }
 
     private List<String> buildSummaryLore(final Player player) {
-        final List<String> lore = new ArrayList<>();
-        final List<String> configuredLore = configManager.getQuestConfiguration().getStringList("npc.header-lore");
-        if (!configuredLore.isEmpty()) {
-            lore.addAll(configuredLore);
-        }
-        lore.add("<gray>Aktiv: <white>" + questManager.getActiveQuestCount(player.getUniqueId()) + "</white>");
-        lore.add("<gray>Bereit: <white>" + questManager.getClaimableQuestCount(player.getUniqueId()) + "</white>");
-        lore.add("<gray>Erledigt: <white>" + questManager.getClaimedQuestCount(player.getUniqueId()) + "/3</white>");
-        return lore;
+        return formatList(
+                questUiList("summary-lore", List.of(
+                        "<gray>Aktiv: <white>%active%</white>",
+                        "<gray>Bereit: <white>%claimable%</white>",
+                        "<gray>Erledigt: <white>%claimed%/%total%</white>"
+                )),
+                Map.of(
+                        "active", String.valueOf(questManager.getActiveQuestCount(player.getUniqueId())),
+                        "claimable", String.valueOf(questManager.getClaimableQuestCount(player.getUniqueId())),
+                        "claimed", String.valueOf(questManager.getClaimedQuestCount(player.getUniqueId())),
+                        "total", String.valueOf(questManager.getQuests().size())
+                )
+        );
     }
 
     private ItemStack createQuestItem(
@@ -226,17 +231,33 @@ public final class QuestMenuManager implements Listener {
             final QuestCardState state
     ) {
         final List<String> lore = new ArrayList<>(quest.description());
-        lore.add("<gray>Typ: <white>" + quest.period().getDisplayName() + "</white>");
-        lore.add("<gray>Job: <white>" + configManager.getJobDisplayName(quest.job()) + "</white>");
-        lore.add("<gray>Fortschritt: <white>" + progress.getProgress() + "/" + quest.requiredAmount() + "</white>");
-        lore.add("<gray>Belohnung: <white>+" + quest.rewardXp() + " " + configManager.getJobDisplayName(quest.job()) + "-XP</white>");
-        lore.add("<gray>Reset in <white>" + formatResetDuration(quest.period()) + "</white>");
+        lore.addAll(formatList(
+                questUiList("quest-card-details", List.of(
+                        "<gray>Typ: <white>%period%</white>",
+                        "<gray>Job: <white>%job%</white>",
+                        "<gray>Fortschritt: <white>%progress%/%required%</white>",
+                        "<gray>Belohnung: <white>+%rewardXp% %job%-XP</white>",
+                        "<gray>Reset in <white>%reset%</white>"
+                )),
+                Map.of(
+                        "period", quest.period().getDisplayName(),
+                        "job", configManager.getJobDisplayName(quest.job()),
+                        "progress", String.valueOf(progress.getProgress()),
+                        "required", String.valueOf(quest.requiredAmount()),
+                        "rewardXp", String.valueOf(quest.rewardXp()),
+                        "reset", formatResetDuration(quest.period())
+                )
+        ));
         lore.add(statusLine(state));
         lore.add(actionLine(state));
 
         return createItemStack(
                 getQuestDisplayMaterial(quest, state),
-                quest.period().getColorPrefix() + quest.period().getDisplayName() + " <gray>·</gray> <white>" + quest.displayName() + "</white>",
+                format(questUiString("quest-card-title", "%periodColor%%period% <gray>.</gray> <white>%quest%</white>"), Map.of(
+                        "periodColor", quest.period().getColorPrefix(),
+                        "period", quest.period().getDisplayName(),
+                        "quest", quest.displayName()
+                )),
                 lore,
                 state == QuestCardState.CLAIMABLE || state == QuestCardState.CLAIMED
         );
@@ -280,19 +301,19 @@ public final class QuestMenuManager implements Listener {
 
     private String statusLine(final QuestCardState state) {
         return switch (state) {
-            case AVAILABLE -> "<aqua>Verfügbar";
-            case ACTIVE -> "<yellow>Aktiv";
-            case CLAIMABLE -> "<gold>Abgabebereit";
-            case CLAIMED -> "<green>Bereits erledigt";
+            case AVAILABLE -> questUiString("status.available", "<aqua>Verfugbar");
+            case ACTIVE -> questUiString("status.active", "<yellow>Aktiv");
+            case CLAIMABLE -> questUiString("status.claimable", "<gold>Abgabebereit");
+            case CLAIMED -> questUiString("status.claimed", "<green>Bereits erledigt");
         };
     }
 
     private String actionLine(final QuestCardState state) {
         return switch (state) {
-            case AVAILABLE -> "<gray>Klicke, um diese Mission zu starten.</gray>";
-            case ACTIVE -> "<gray>Rechtsklick, um sie abzubrechen.</gray>";
-            case CLAIMABLE -> "<gray>Klicke, um die Belohnung abzuholen.</gray>";
-            case CLAIMED -> "<gray>Warte auf den nächsten Zyklus.</gray>";
+            case AVAILABLE -> questUiString("action.available", "<gray>Klicke, um diese Mission zu starten.</gray>");
+            case ACTIVE -> questUiString("action.active", "<gray>Rechtsklick, um sie abzubrechen.</gray>");
+            case CLAIMABLE -> questUiString("action.claimable", "<gray>Klicke, um die Belohnung abzuholen.</gray>");
+            case CLAIMED -> questUiString("action.claimed", "<gray>Warte auf den nachsten Zyklus.</gray>");
         };
     }
 
@@ -352,6 +373,31 @@ public final class QuestMenuManager implements Listener {
         return itemStack;
     }
 
+    private String questUiString(final String path, final String fallback) {
+        return configManager.getQuestConfiguration().getString("npc.ui." + path, fallback);
+    }
+
+    private List<String> questUiList(final String path, final List<String> fallback) {
+        final List<String> configured = configManager.getQuestConfiguration().getStringList("npc.ui." + path);
+        return configured.isEmpty() ? fallback : configured;
+    }
+
+    private String format(final String template, final Map<String, String> placeholders) {
+        String result = template;
+        for (final Map.Entry<String, String> entry : placeholders.entrySet()) {
+            result = result.replace('%' + entry.getKey() + '%', entry.getValue());
+        }
+        return result;
+    }
+
+    private List<String> formatList(final List<String> templates, final Map<String, String> placeholders) {
+        final List<String> lines = new ArrayList<>(templates.size());
+        for (final String template : templates) {
+            lines.add(format(template, placeholders));
+        }
+        return lines;
+    }
+
     private static Map<QuestPeriod, List<Integer>> createCardSlots() {
         final Map<QuestPeriod, List<Integer>> slots = new LinkedHashMap<>();
         slots.put(QuestPeriod.DAILY, List.of(9, 10, 11, 18, 19, 20, 27, 28, 29));
@@ -371,4 +417,3 @@ public final class QuestMenuManager implements Listener {
         CLAIMED
     }
 }
-

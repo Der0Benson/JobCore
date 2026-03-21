@@ -1,0 +1,65 @@
+# JobCore example scoreboard for SimpleScore
+# Paste this into plugins/SimpleScore/scoreboards.yml
+# Also copy the conditions from SIMPLESCORE_JOBCORE_CONDITIONS.yml into plugins/SimpleScore/conditions.yml
+# This uses the scoreboard name "default" so it works with SimpleScore's default world fallback.
+# If you rename it, also update plugins/SimpleScore/main.yml -> worlds to point to the new name.
+# For JobCore placeholders, set plugins/SimpleScore/main.yml -> scoreboardTaskAsync: false
+
+default:
+  titles:
+    - '&#54DAF4&lJ&#52D6F2&lO&#50D2F0&lB&#4FCFED&lC&#4DCBEB&lO&#4BC7E9&lR&#49C3E7&lE'
+    - '&#4BC7E9&lJ&#49C3E7&lO&#54DAF4&lB&#52D6F2&lC&#50D2F0&lO&#4FCFED&lR&#4DCBEB&lE'
+    - '&#50D2F0&lJ&#4FCFED&lO&#4DCBEB&lB&#4BC7E9&lC&#49C3E7&lO&#54DAF4&lR&#52D6F2&lE'
+  scores:
+    - score: 14
+      lines: '&7&m----------------------'
+    - score: 13
+      lines: '&b&lPLAYER'
+    - score: 12
+      lines: '&7Name: &f%player_name%'
+    - score: 10
+      lines: '&a&lJOBCORE'
+    - score: 9
+      lines: '&7Total Lv: &f%jobcore_total_level%'
+    - score: 8
+      lines: '&7Top: &f%jobcore_highest_job% &8(Lv %jobcore_highest_job_level%)'
+    - score: 7
+      lines: '&d&lACTIVE QUESTS'
+    - score: 6
+      lines:
+        - conditions: [ 'jobcoreDailyQuestActive' ]
+          text: '&7Daily: &f%jobcore_quest_daily_name%'
+        - ' '
+    - score: 5
+      lines:
+        - conditions: [ 'jobcoreDailyQuestActive' ]
+          text: '&8%jobcore_quest_daily_progress%&7/&8%jobcore_quest_daily_required% &7(%jobcore_quest_daily_progress_percent%)'
+        - '  '
+    - score: 4
+      lines:
+        - conditions: [ 'jobcoreWeeklyQuestActive' ]
+          text: '&7Weekly: &f%jobcore_quest_weekly_name%'
+        - '   '
+    - score: 3
+      lines:
+        - conditions: [ 'jobcoreWeeklyQuestActive' ]
+          text: '&8%jobcore_quest_weekly_progress%&7/&8%jobcore_quest_weekly_required% &7(%jobcore_quest_weekly_progress_percent%)'
+        - '    '
+    - score: 2
+      lines:
+        - conditions: [ 'jobcoreMonthlyQuestActive' ]
+          text: '&7Monthly: &f%jobcore_quest_monthly_name%'
+        - '     '
+    - score: 1
+      lines:
+        - conditions: [ 'jobcoreMonthlyQuestActive' ]
+          text: '&8%jobcore_quest_monthly_progress%&7/&8%jobcore_quest_monthly_required% &7(%jobcore_quest_monthly_progress_percent%)'
+        - conditions: [ 'jobcoreNoQuestActive' ]
+          text: '&8Keine aktive Quest'
+        - '&7Claimable: &f%jobcore_quests_claimable%'
+    - score: 0
+      lines: '&7&m----------------------'
+  defaultHideNumber: true
+  defaultVisibleFor: 60
+  defaultRenderEvery: 20
+  conditions: [ ]

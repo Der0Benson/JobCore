@@ -22,7 +22,7 @@ import java.util.Map;
 
 public final class ConfigManager {
 
-    private static final int MAIN_CONFIG_VERSION = 2;
+    private static final int MAIN_CONFIG_VERSION = 3;
     private static final int QUEST_CONFIG_VERSION = 2;
     private static final int JOB_CONFIG_VERSION = 2;
     private static final String DEFAULT_BOSSBAR_TEMPLATE =

@@ -5,9 +5,14 @@ import java.util.Optional;
 
 public enum QuestObjectiveType {
     BREAK_BLOCK,
+    PLACE_BLOCK,
     KILL_ENTITY,
     FISH_ITEM,
-    BREW_INGREDIENT;
+    BREW_INGREDIENT,
+    CRAFT_ITEM,
+    SMELT_ITEM,
+    CONSUME_ITEM,
+    ENCHANT_ITEM;
 
     public static Optional<QuestObjectiveType> fromConfig(final String input) {
         if (input == null || input.isBlank()) {

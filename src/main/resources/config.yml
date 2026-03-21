@@ -1,4 +1,4 @@
-﻿config-version: 2
+config-version: 3
 
 storage:
   type: "yaml"
@@ -38,10 +38,98 @@ leaderboards:
 menu:
   overview-title: "Job-Auswahl"
   path-title: "Levelpfad"
+  leaderboard-title: "Bestenlisten"
   close-label: "<red>Schließen"
   back-label: "<yellow>Zur Übersicht"
   previous-page-label: "<gold>Vorherige Seite"
   next-page-label: "<gold>Nächste Seite"
+  overview-header-title: "<gold>Job-Auswahl</gold>"
+  overview-header-lore:
+    - "<gray>Wähle einen Job, dessen Pfad du genauer sehen möchtest."
+    - "<gray><white>Holzfäller</white>, <white>Miner</white>, <white>Farmer</white>, <white>Krieger</white>, <white>Angler</white> und <white>Alchemist</white> sind spielbar."
+    - "<gray>Weitere Jobs sind bereits als Platzhalter vorbereitet."
+  overview-summary-title: "<green>Dein Fortschritt</green>"
+  overview-summary-no-job: "Noch keiner"
+  overview-summary-lore:
+    - "<gray>Gesamtlevel: <white>%totalLevel%</white>"
+    - "<gray>Verfügbare Pfade: <white>%jobCount%</white>"
+    - "<gray>Höchster Job: <white>%highestJob%</white>"
+    - "<yellow>Klicke auf einen Job, um die Detailansicht zu öffnen."
+  overview-leaderboard-title: "<gold>Bestenlisten</gold>"
+  overview-leaderboard-lore:
+    - "<gray>Sieh dir die stärksten Spieler pro Job an."
+    - "<gray>Außerdem findest du hier die aktivsten Questspieler."
+    - "<yellow>Klicke, um die Bestenlisten zu öffnen."
+  path-back-lore:
+    - "<gray>Zur Startseite mit allen Jobs zurückkehren."
+  path-previous-enabled-lore: "<gray>Öffnet die vorige Pfad-Seite.</gray>"
+  path-previous-disabled-lore: "<dark_gray>Du bist bereits auf der ersten Seite.</dark_gray>"
+  path-next-enabled-lore: "<gray>Öffnet die nächste Pfad-Seite.</gray>"
+  path-next-disabled-lore: "<dark_gray>Dies ist bereits die letzte Seite.</dark_gray>"
+  path-leaderboard-title: "<gold>Bestenlisten</gold>"
+  path-leaderboard-lore:
+    - "<gray>Öffnet die globalen Job- und Quest-Rankings.</gray>"
+  path-summary-level: "<gray>Level: <white>%level%</white>"
+  path-summary-xp: "<gray>XP: <white>%xp%/%needed%</white>"
+  path-summary-xp-max: "<gray>XP: <white>MAX/MAX</white>"
+  path-summary-xp-boost: "<gray>Aktive XP-Boni: <white>%boost%</white>"
+  path-summary-page: "<gray>Seite: <white>%page%/%pages%</white>"
+  path-summary-range: "<gray>Bereich: <white>Lv.%start% bis Lv.%end%</white>"
+  path-summary-next-perk-none: "<green>Alle aktuellen Standard-Perks sind freigeschaltet."
+  path-summary-next-perk: "<gray>Nächster Perk: <white>Lv.%level%</white>"
+  path-summary-next-reward-none: "<green>Keine weitere Pfad-Belohnung definiert."
+  path-summary-next-reward: "<gray>Nächste Belohnung: <white>Lv.%level%</white>"
+  path-summary-more-rewards: "<gray>+<white>%count%</white> weitere Belohnungen"
+  level-node-state-unlocked: "<green>Freigeschaltet"
+  level-node-state-next: "<yellow>Nächstes Ziel"
+  level-node-state-locked: "<gray>Gesperrt"
+  level-node-missing-xp: "<gray>Fehlende XP: <white>%xp%</white>"
+  level-node-no-reward: "<dark_gray>Keine neue Belohnung auf dieser Stufe."
+  level-node-perks-label: "<gray>Perks:"
+  level-node-rewards-label: "<gray>Belohnungen:"
+  level-node-title: "%color%Level %level%"
+  real-job-lore:
+    - "<gray>Level: <white>%level%</white>"
+    - "%xpLine%"
+    - "<gray>Freigeschaltete Perks: <white>%unlockedPerks%/%totalPerks%</white>"
+    - "<gray>Belohnungs-Stufen: <white>%rewardLevels%</white>"
+    - "%statusLine%"
+    - "%clickLine%"
+  real-job-status: "<green>Verfügbar"
+  real-job-click-lore: "<yellow>Klicke für den detaillierten Pfad."
+  leaderboard-header-title: "<gold>Bestenlisten</gold>"
+  leaderboard-header-lore:
+    - "<gray>Hier siehst du die stärksten Spieler pro Job."
+    - "<gray>In der Mitte findest du außerdem die aktivsten Questspieler."
+  leaderboard-back-lore:
+    - "<gray>Zurück zur Job-Auswahl.</gray>"
+  leaderboard-summary-title: "<green>Ranking-Info</green>"
+  leaderboard-summary-lore:
+    - "<gray>Job-Rankings sortieren nach <white>Level</white> und dann <white>XP</white>."
+    - "<gray>Quest-Ranking sortiert nach <white>abgegebenen Missionen</white>."
+    - "<yellow>Klicke auf einen Job, um direkt seinen Pfad zu öffnen."
+  leaderboard-job-refreshing: "<gray>Ranking wird gerade aktualisiert...</gray>"
+  leaderboard-job-empty: "<dark_gray>Noch keine Einträge vorhanden."
+  leaderboard-job-entry: "<gray>#%rank% <white>%player%</white> <gray>· Lv.<white>%level%</white> <gray>· <white>%xp% XP</white>"
+  leaderboard-job-click-lore: "<yellow>Klicke, um den Pfad zu öffnen."
+  quest-leaderboard-title: "<light_purple>Questspieler</light_purple>"
+  quest-leaderboard-refreshing: "<gray>Ranking wird gerade aktualisiert...</gray>"
+  quest-leaderboard-empty: "<dark_gray>Noch keine Quest-Abgaben vorhanden."
+  quest-leaderboard-entry: "<gray>#%rank% <white>%player%</white> <gray>· <white>%count%</white> abgeschlossene Missionen"
+  close-lore:
+    - "<gray>Schließt dieses Menü.</gray>"
+  navigation-disabled-title: "<gray>Ausgegraut</gray>"
+  dummy-job-click-message: "<yellow>%job% ist noch ein Platzhalter und wird später freigeschaltet.</yellow>"
+  dummy-job-lore:
+    - "<gray>%description%</gray>"
+    - "<dark_gray>Demnächst verfügbar"
+    - "<dark_gray>Noch kein spielbarer Pfad hinterlegt."
+  dummy-jobs:
+    hunter:
+      display-name: "Jäger"
+      icon: "BOW"
+      description: "Mobs, Beute und Jagdserien."
+      click-message: "<yellow>%job% ist noch ein Platzhalter und wird später freigeschaltet.</yellow>"
 
 messages:
   prefix: "<gray>[<green>JobCore<gray>] "
@@ -61,4 +149,3 @@ messages:
   quest-already-active: "<yellow>Die Quest <white>%quest%</white><yellow> ist bereits aktiv.</yellow>"
   quest-not-ready: "<red>Die Quest <white>%quest%</white><red> ist noch nicht abgeschlossen.</red>"
   quest-cycle-finished: "<yellow>Diese %period%-Mission <white>%quest%</white><yellow> ist in diesem Zyklus bereits erledigt.</yellow>"
-
