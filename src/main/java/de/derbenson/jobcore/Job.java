@@ -2,6 +2,7 @@ package de.derbenson.jobcore;
 
 import net.kyori.adventure.bossbar.BossBar;
 import org.bukkit.Material;
+import org.bukkit.entity.EntityType;
 
 import java.util.Collections;
 import java.util.EnumMap;
@@ -15,10 +16,11 @@ import java.util.Set;
 public enum Job {
     WOODCUTTER(
             "woodcutter",
-            "HolzfÃ¤ller",
+            "Holzf\u00e4ller",
             Material.IRON_AXE,
             BossBar.Color.GREEN,
             createWoodcutterDefaults(),
+            Map.of(),
             createMaterialSet(
                     Material.OAK_LOG,
                     Material.SPRUCE_LOG,
@@ -52,6 +54,7 @@ public enum Job {
             Material.DIAMOND_PICKAXE,
             BossBar.Color.BLUE,
             createMinerDefaults(),
+            Map.of(),
             createMaterialSet(
                     Material.STONE,
                     Material.DEEPSLATE,
@@ -95,6 +98,7 @@ public enum Job {
             Material.GOLDEN_HOE,
             BossBar.Color.YELLOW,
             createFarmerDefaults(),
+            Map.of(),
             createMaterialSet(
                     Material.MELON,
                     Material.PUMPKIN,
@@ -121,6 +125,69 @@ public enum Job {
                     new BonusDropEntry(Material.HAY_BLOCK, 1, 30),
                     new BonusDropEntry(Material.GOLDEN_CARROT, 2, 25)
             )
+    ),
+    ANGLER(
+            "angler",
+            "Angler",
+            Material.FISHING_ROD,
+            BossBar.Color.WHITE,
+            createAnglerDefaults(),
+            Map.of(),
+            Set.of(),
+            Set.of(),
+            List.of(
+                    new JobPerk(10, PerkType.XP_BOOST, 0.02D, "<white>+2% Job-XP"),
+                    new JobPerk(25, PerkType.DOUBLE_DROP_CHANCE, 0.02D, "<white>2% Chance auf doppelten Fang"),
+                    new JobPerk(50, PerkType.BONUS_DROP_CHANCE, 0.05D, "<white>5% Chance auf Bonus-Fang")
+            ),
+            createAnglerPathRewardDefaults(),
+            List.of(
+                    new BonusDropEntry(Material.NAUTILUS_SHELL, 1, 30),
+                    new BonusDropEntry(Material.PRISMARINE_SHARD, 3, 35),
+                    new BonusDropEntry(Material.PRISMARINE_CRYSTALS, 2, 35)
+            )
+    ),
+    ALCHEMIST(
+            "alchemist",
+            "Alchemist",
+            Material.BREWING_STAND,
+            BossBar.Color.PURPLE,
+            createAlchemistDefaults(),
+            Map.of(),
+            Set.of(),
+            Set.of(),
+            List.of(
+                    new JobPerk(10, PerkType.XP_BOOST, 0.02D, "<light_purple>+2% Job-XP"),
+                    new JobPerk(25, PerkType.DOUBLE_DROP_CHANCE, 0.02D, "<light_purple>2% Chance auf doppelte Tr\u00e4nke"),
+                    new JobPerk(50, PerkType.BONUS_DROP_CHANCE, 0.05D, "<light_purple>5% Chance auf Bonus-Zutaten")
+            ),
+            createAlchemistPathRewardDefaults(),
+            List.of(
+                    new BonusDropEntry(Material.REDSTONE, 4, 35),
+                    new BonusDropEntry(Material.GLOWSTONE_DUST, 3, 35),
+                    new BonusDropEntry(Material.GUNPOWDER, 2, 30)
+            )
+    ),
+    WARRIOR(
+            "warrior",
+            "Krieger",
+            Material.IRON_SWORD,
+            BossBar.Color.RED,
+            Map.of(),
+            createWarriorDefaults(),
+            Set.of(),
+            Set.of(),
+            List.of(
+                    new JobPerk(10, PerkType.XP_BOOST, 0.02D, "<red>+2% Job-XP"),
+                    new JobPerk(25, PerkType.DOUBLE_DROP_CHANCE, 0.02D, "<red>2% Chance auf doppelte Mob-Drops"),
+                    new JobPerk(50, PerkType.BONUS_DROP_CHANCE, 0.05D, "<red>5% Chance auf Bonus-Beute")
+            ),
+            createWarriorPathRewardDefaults(),
+            List.of(
+                    new BonusDropEntry(Material.BONE, 2, 35),
+                    new BonusDropEntry(Material.ROTTEN_FLESH, 4, 35),
+                    new BonusDropEntry(Material.GUNPOWDER, 2, 30)
+            )
     );
 
     private final String id;
@@ -128,6 +195,7 @@ public enum Job {
     private final Material icon;
     private final BossBar.Color barColor;
     private final Map<Material, Integer> defaultXpValues;
+    private final Map<EntityType, Integer> defaultEntityXpValues;
     private final Set<Material> defaultPlacedProtectionMaterials;
     private final Set<Material> defaultMatureHarvestMaterials;
     private final List<JobPerk> defaultPerks;
@@ -140,6 +208,7 @@ public enum Job {
             final Material icon,
             final BossBar.Color barColor,
             final Map<Material, Integer> defaultXpValues,
+            final Map<EntityType, Integer> defaultEntityXpValues,
             final Set<Material> defaultPlacedProtectionMaterials,
             final Set<Material> defaultMatureHarvestMaterials,
             final List<JobPerk> defaultPerks,
@@ -151,6 +220,7 @@ public enum Job {
         this.icon = icon;
         this.barColor = barColor;
         this.defaultXpValues = Collections.unmodifiableMap(defaultXpValues);
+        this.defaultEntityXpValues = Collections.unmodifiableMap(defaultEntityXpValues);
         this.defaultPlacedProtectionMaterials = Collections.unmodifiableSet(defaultPlacedProtectionMaterials);
         this.defaultMatureHarvestMaterials = Collections.unmodifiableSet(defaultMatureHarvestMaterials);
         this.defaultPerks = List.copyOf(defaultPerks);
@@ -176,6 +246,10 @@ public enum Job {
 
     public Map<Material, Integer> getDefaultXpValues() {
         return defaultXpValues;
+    }
+
+    public Map<EntityType, Integer> getDefaultEntityXpValues() {
+        return defaultEntityXpValues;
     }
 
     public Set<Material> getDefaultPlacedProtectionMaterials() {
@@ -272,14 +346,123 @@ public enum Job {
         return values;
     }
 
+    private static Map<Material, Integer> createAnglerDefaults() {
+        final Map<Material, Integer> values = new EnumMap<>(Material.class);
+        values.put(Material.COD, 6);
+        values.put(Material.SALMON, 7);
+        values.put(Material.TROPICAL_FISH, 9);
+        values.put(Material.PUFFERFISH, 10);
+        values.put(Material.BOW, 12);
+        values.put(Material.ENCHANTED_BOOK, 16);
+        values.put(Material.NAME_TAG, 14);
+        values.put(Material.SADDLE, 14);
+        values.put(Material.NAUTILUS_SHELL, 18);
+        values.put(Material.LILY_PAD, 5);
+        values.put(Material.BOWL, 4);
+        values.put(Material.LEATHER_BOOTS, 5);
+        values.put(Material.ROTTEN_FLESH, 4);
+        values.put(Material.STICK, 4);
+        values.put(Material.STRING, 5);
+        values.put(Material.BONE, 5);
+        values.put(Material.INK_SAC, 6);
+        values.put(Material.TRIPWIRE_HOOK, 5);
+        return values;
+    }
+
+    private static Map<Material, Integer> createAlchemistDefaults() {
+        final Map<Material, Integer> values = new EnumMap<>(Material.class);
+        values.put(Material.NETHER_WART, 8);
+        values.put(Material.REDSTONE, 7);
+        values.put(Material.GLOWSTONE_DUST, 8);
+        values.put(Material.GUNPOWDER, 8);
+        values.put(Material.DRAGON_BREATH, 16);
+        values.put(Material.FERMENTED_SPIDER_EYE, 10);
+        values.put(Material.SPIDER_EYE, 8);
+        values.put(Material.SUGAR, 8);
+        values.put(Material.MAGMA_CREAM, 10);
+        values.put(Material.GHAST_TEAR, 12);
+        values.put(Material.RABBIT_FOOT, 12);
+        values.put(Material.BLAZE_POWDER, 11);
+        values.put(Material.GLISTERING_MELON_SLICE, 10);
+        values.put(Material.GOLDEN_CARROT, 10);
+        values.put(Material.PUFFERFISH, 10);
+        values.put(Material.TURTLE_HELMET, 12);
+        values.put(Material.PHANTOM_MEMBRANE, 12);
+        values.put(Material.BREEZE_ROD, 14);
+        return values;
+    }
+
+    private static Map<EntityType, Integer> createWarriorDefaults() {
+        final Map<EntityType, Integer> values = new EnumMap<>(EntityType.class);
+        values.put(EntityType.ZOMBIE, 9);
+        values.put(EntityType.SKELETON, 9);
+        values.put(EntityType.SPIDER, 8);
+        values.put(EntityType.CREEPER, 11);
+        values.put(EntityType.ENDERMAN, 15);
+        values.put(EntityType.WITCH, 18);
+        values.put(EntityType.SLIME, 7);
+        values.put(EntityType.MAGMA_CUBE, 8);
+        values.put(EntityType.BLAZE, 14);
+        values.put(EntityType.GHAST, 18);
+        values.put(EntityType.PIGLIN, 10);
+        values.put(EntityType.PIGLIN_BRUTE, 18);
+        values.put(EntityType.ZOMBIFIED_PIGLIN, 11);
+        values.put(EntityType.HOGLIN, 14);
+        values.put(EntityType.ZOGLIN, 16);
+        values.put(EntityType.WITHER_SKELETON, 16);
+        values.put(EntityType.STRAY, 12);
+        values.put(EntityType.HUSK, 12);
+        values.put(EntityType.DROWNED, 12);
+        values.put(EntityType.PHANTOM, 13);
+        values.put(EntityType.PILLAGER, 12);
+        values.put(EntityType.VINDICATOR, 16);
+        values.put(EntityType.EVOKER, 25);
+        values.put(EntityType.RAVAGER, 28);
+        values.put(EntityType.GUARDIAN, 16);
+        values.put(EntityType.ELDER_GUARDIAN, 40);
+        values.put(EntityType.SHULKER, 20);
+        values.put(EntityType.SILVERFISH, 5);
+        values.put(EntityType.ENDERMITE, 6);
+        values.put(EntityType.BOGGED, 13);
+        values.put(EntityType.BREEZE, 18);
+        values.put(EntityType.WARDEN, 120);
+        values.put(EntityType.WITHER, 100);
+        values.put(EntityType.ENDER_DRAGON, 250);
+        values.put(EntityType.COW, 5);
+        values.put(EntityType.SHEEP, 5);
+        values.put(EntityType.PIG, 5);
+        values.put(EntityType.CHICKEN, 4);
+        values.put(EntityType.RABBIT, 4);
+        values.put(EntityType.GOAT, 7);
+        values.put(EntityType.HORSE, 8);
+        values.put(EntityType.DONKEY, 7);
+        values.put(EntityType.MULE, 7);
+        values.put(EntityType.LLAMA, 7);
+        values.put(EntityType.TRADER_LLAMA, 8);
+        values.put(EntityType.WOLF, 8);
+        values.put(EntityType.FOX, 6);
+        values.put(EntityType.POLAR_BEAR, 14);
+        values.put(EntityType.PANDA, 12);
+        values.put(EntityType.TURTLE, 6);
+        values.put(EntityType.DOLPHIN, 8);
+        values.put(EntityType.SQUID, 4);
+        values.put(EntityType.GLOW_SQUID, 5);
+        values.put(EntityType.SALMON, 3);
+        values.put(EntityType.COD, 3);
+        values.put(EntityType.TROPICAL_FISH, 3);
+        values.put(EntityType.PUFFERFISH, 4);
+        values.put(EntityType.CAMEL, 10);
+        return values;
+    }
+
     private static Map<Integer, List<PathReward>> createWoodcutterPathRewardDefaults() {
         return Map.of(
-                5, List.of(new PathReward(PathRewardType.MESSAGE, "<aqua>Willkommens-Belohnung", "<green>Du hast die ersten Stufen des HolzfÃ¤ller-Pfads erreicht.", null, 0)),
+                5, List.of(new PathReward(PathRewardType.MESSAGE, "<aqua>Willkommens-Belohnung", "<green>Du hast die ersten Stufen des Holzf\u00e4ller-Pfads erreicht.", null, 0)),
                 15, List.of(new PathReward(PathRewardType.ITEM, "<green>8 Eichensetzlinge", "", Material.OAK_SAPLING, 8)),
-                30, List.of(new PathReward(PathRewardType.ITEM, "<green>16 StÃ¶cke", "", Material.STICK, 16)),
-                50, List.of(new PathReward(PathRewardType.MESSAGE, "<gold>Meilenstein Level 50", "<gold>Du hast Level 50 als HolzfÃ¤ller erreicht.", null, 0)),
-                75, List.of(new PathReward(PathRewardType.ITEM, "<green>4 MoosblÃ¶cke", "", Material.MOSS_BLOCK, 4)),
-                100, List.of(new PathReward(PathRewardType.MESSAGE, "<yellow>HolzfÃ¤ller-Meister", "<yellow>Du hast den HolzfÃ¤ller-Pfad auf Level 100 abgeschlossen.", null, 0))
+                30, List.of(new PathReward(PathRewardType.ITEM, "<green>16 St\u00f6cke", "", Material.STICK, 16)),
+                50, List.of(new PathReward(PathRewardType.MESSAGE, "<gold>Meilenstein Level 50", "<gold>Du hast Level 50 als Holzf\u00e4ller erreicht.", null, 0)),
+                75, List.of(new PathReward(PathRewardType.ITEM, "<green>4 Moosbl\u00f6cke", "", Material.MOSS_BLOCK, 4)),
+                100, List.of(new PathReward(PathRewardType.MESSAGE, "<yellow>Holzf\u00e4ller-Meister", "<yellow>Du hast den Holzf\u00e4ller-Pfad auf Level 100 abgeschlossen.", null, 0))
         );
     }
 
@@ -305,6 +488,39 @@ public enum Job {
         );
     }
 
+    private static Map<Integer, List<PathReward>> createAnglerPathRewardDefaults() {
+        return Map.of(
+                5, List.of(new PathReward(PathRewardType.MESSAGE, "<aqua>Erster Fang", "<white>Du hast die ersten Stufen des Angler-Pfads erreicht.", null, 0)),
+                15, List.of(new PathReward(PathRewardType.ITEM, "<white>8 Lachs", "", Material.SALMON, 8)),
+                30, List.of(new PathReward(PathRewardType.ITEM, "<white>1 Namensschild", "", Material.NAME_TAG, 1)),
+                50, List.of(new PathReward(PathRewardType.MESSAGE, "<gold>Meilenstein Level 50", "<gold>Du hast Level 50 als Angler erreicht.", null, 0)),
+                75, List.of(new PathReward(PathRewardType.ITEM, "<white>2 Nautilusschalen", "", Material.NAUTILUS_SHELL, 2)),
+                100, List.of(new PathReward(PathRewardType.MESSAGE, "<yellow>Meister der Gew\u00e4sser", "<yellow>Du hast den Angler-Pfad auf Level 100 abgeschlossen.", null, 0))
+        );
+    }
+
+    private static Map<Integer, List<PathReward>> createAlchemistPathRewardDefaults() {
+        return Map.of(
+                5, List.of(new PathReward(PathRewardType.MESSAGE, "<aqua>Erste Mixtur", "<light_purple>Du hast die ersten Rezepte des Alchemisten-Pfads gemeistert.", null, 0)),
+                15, List.of(new PathReward(PathRewardType.ITEM, "<light_purple>8 Netherwarzen", "", Material.NETHER_WART, 8)),
+                30, List.of(new PathReward(PathRewardType.ITEM, "<light_purple>8 Redstone", "", Material.REDSTONE, 8)),
+                50, List.of(new PathReward(PathRewardType.MESSAGE, "<gold>Meilenstein Level 50", "<gold>Du hast Level 50 als Alchemist erreicht.", null, 0)),
+                75, List.of(new PathReward(PathRewardType.ITEM, "<light_purple>2 Drachenatem", "", Material.DRAGON_BREATH, 2)),
+                100, List.of(new PathReward(PathRewardType.MESSAGE, "<yellow>Trankmeister", "<yellow>Du hast den Alchemisten-Pfad auf Level 100 abgeschlossen.", null, 0))
+        );
+    }
+
+    private static Map<Integer, List<PathReward>> createWarriorPathRewardDefaults() {
+        return Map.of(
+                5, List.of(new PathReward(PathRewardType.MESSAGE, "<aqua>Erster Sieg", "<red>Du hast die ersten Kämpfe des Krieger-Pfads gemeistert.", null, 0)),
+                15, List.of(new PathReward(PathRewardType.ITEM, "<red>8 Steaks", "", Material.COOKED_BEEF, 8)),
+                30, List.of(new PathReward(PathRewardType.ITEM, "<red>24 Pfeile", "", Material.ARROW, 24)),
+                50, List.of(new PathReward(PathRewardType.MESSAGE, "<gold>Meilenstein Level 50", "<gold>Du hast Level 50 als Krieger erreicht.", null, 0)),
+                75, List.of(new PathReward(PathRewardType.ITEM, "<red>2 goldene Äpfel", "", Material.GOLDEN_APPLE, 2)),
+                100, List.of(new PathReward(PathRewardType.MESSAGE, "<yellow>Krieger-Meister", "<yellow>Du hast den Krieger-Pfad auf Level 100 abgeschlossen.", null, 0))
+        );
+    }
+
     private static Set<Material> createMaterialSet(final Material... materials) {
         final Set<Material> values = new HashSet<>();
         Collections.addAll(values, materials);
@@ -319,4 +535,5 @@ public enum Job {
                 ));
     }
 }
+
 

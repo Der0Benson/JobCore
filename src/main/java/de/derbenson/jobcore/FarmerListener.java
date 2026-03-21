@@ -19,10 +19,16 @@ public final class FarmerListener implements Listener {
 
     private final JobManager jobManager;
     private final PlacedBlockTracker placedBlockTracker;
+    private final QuestManager questManager;
 
-    public FarmerListener(final JobManager jobManager, final PlacedBlockTracker placedBlockTracker) {
+    public FarmerListener(
+            final JobManager jobManager,
+            final PlacedBlockTracker placedBlockTracker,
+            final QuestManager questManager
+    ) {
         this.jobManager = jobManager;
         this.placedBlockTracker = placedBlockTracker;
+        this.questManager = questManager;
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -54,8 +60,11 @@ public final class FarmerListener implements Listener {
                 ? jobManager.rollBonusDrop(player.getUniqueId(), job)
                 : Optional.empty();
 
-        jobManager.grantExperience(player, job, xp);
+        final int granted = jobManager.grantExperience(player, job, xp);
         applyPerkDrops(event, block, player, doubleDrops, bonusDrop);
+        if (granted > 0) {
+            questManager.recordObjective(player, job, QuestObjectiveType.BREAK_BLOCK, block.getType().name(), 1);
+        }
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -73,6 +82,10 @@ public final class FarmerListener implements Listener {
             return;
         }
 
+        if (placedBlockTracker.isPlayerPlaced(block)) {
+            return;
+        }
+
         final Player player = event.getPlayer();
         final int xp = jobManager.getConfiguredXpValue(Job.FARMER, block.getType());
         if (xp <= 0) {
@@ -82,7 +95,10 @@ public final class FarmerListener implements Listener {
         final boolean doubleDrops = jobManager.shouldDoubleDrops(player.getUniqueId(), Job.FARMER);
         final Optional<BonusDropEntry> bonusDrop = jobManager.rollBonusDrop(player.getUniqueId(), Job.FARMER);
 
-        jobManager.grantExperience(player, Job.FARMER, xp);
+        final int granted = jobManager.grantExperience(player, Job.FARMER, xp);
+        if (granted > 0) {
+            questManager.recordObjective(player, Job.FARMER, QuestObjectiveType.BREAK_BLOCK, block.getType().name(), 1);
+        }
 
         if (doubleDrops) {
             final int amount = 1 + ThreadLocalRandom.current().nextInt(2);

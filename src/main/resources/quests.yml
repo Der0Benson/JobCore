@@ -1,0 +1,348 @@
+﻿config-version: 2
+
+npc:
+  default-name: "<gold>Missionsmeister"
+  menu-title: "Missionstafel"
+  header-title: "<gold>Missionstafel</gold>"
+  header-lore:
+    - "<gray>Es gibt immer genau drei Missionen:"
+    - "<aqua>eine Daily<gray>, <gold>eine Weekly<gray> und <light_purple>eine monatliche Mission</light_purple>"
+    - "<gray>Die Auswahl rotiert automatisch pro Zyklus."
+
+missions:
+  daily:
+    pool:
+      holzlieferung:
+        display-name: "Holzlieferung"
+        icon: "OAK_LOG"
+        job: "woodcutter"
+        objective-type: "BREAK_BLOCK"
+        required-amount: 24
+        reward-xp: 180
+        reward-message: "<green>Der Förster nimmt deine Lieferung an und zahlt dir einen sauberen Bonus aus."
+        description:
+          - "<gray>Baue <white>24 natürliche Stämme</white> ab."
+      erzspurt:
+        display-name: "Erzspurt"
+        icon: "IRON_PICKAXE"
+        job: "miner"
+        objective-type: "BREAK_BLOCK"
+        required-amount: 28
+        reward-xp: 190
+        reward-message: "<blue>Die Schichtleitung ist mit deiner Ausbeute zufrieden."
+        description:
+          - "<gray>Baue <white>28 Erze</white> aus den üblichen Tiefen ab."
+        targets:
+          - "COAL_ORE"
+          - "DEEPSLATE_COAL_ORE"
+          - "COPPER_ORE"
+          - "DEEPSLATE_COPPER_ORE"
+          - "IRON_ORE"
+          - "DEEPSLATE_IRON_ORE"
+      hofrunde:
+        display-name: "Hofrunde"
+        icon: "GOLDEN_HOE"
+        job: "farmer"
+        objective-type: "BREAK_BLOCK"
+        required-amount: 36
+        reward-xp: 175
+        reward-message: "<yellow>Der Hof sieht wieder ordentlich aus."
+        description:
+          - "<gray>Ernte <white>36 reife Feldfrüchte</white>."
+        targets:
+          - "WHEAT"
+          - "CARROTS"
+          - "POTATOES"
+          - "BEETROOTS"
+          - "COCOA"
+          - "SWEET_BERRY_BUSH"
+      morgenfang:
+        display-name: "Morgenfang"
+        icon: "FISHING_ROD"
+        job: "angler"
+        objective-type: "FISH_ITEM"
+        required-amount: 8
+        reward-xp: 170
+        reward-message: "<aqua>Die Fischer freuen sich über deinen frischen Fang."
+        description:
+          - "<gray>Fange <white>8 Fische</white> aus offenem Wasser."
+        targets:
+          - "COD"
+          - "SALMON"
+          - "TROPICAL_FISH"
+          - "PUFFERFISH"
+      braukeller:
+        display-name: "Braukeller"
+        icon: "BREWING_STAND"
+        job: "alchemist"
+        objective-type: "BREW_INGREDIENT"
+        required-amount: 8
+        reward-xp: 185
+        reward-message: "<light_purple>Die ersten Mixturen des Tages sitzen perfekt."
+        description:
+          - "<gray>Nutze <white>8 Grundzutaten</white> beim Brauen."
+        targets:
+          - "NETHER_WART"
+          - "REDSTONE"
+          - "GLOWSTONE_DUST"
+          - "SPIDER_EYE"
+          - "SUGAR"
+      nachtwache:
+        display-name: "Nachtwache"
+        icon: "IRON_SWORD"
+        job: "warrior"
+        objective-type: "KILL_ENTITY"
+        required-amount: 18
+        reward-xp: 200
+        reward-message: "<red>Die Nacht verlief ruhiger dank deiner Wachsamkeit."
+        description:
+          - "<gray>Töte <white>18 feindliche Mobs</white>."
+        targets:
+          - "ZOMBIE"
+          - "DROWNED"
+          - "SKELETON"
+          - "STRAY"
+          - "SPIDER"
+          - "CREEPER"
+          - "PHANTOM"
+
+  weekly:
+    pool:
+      grenzpatrouille:
+        display-name: "Grenzpatrouille"
+        icon: "IRON_SWORD"
+        job: "warrior"
+        objective-type: "KILL_ENTITY"
+        required-amount: 60
+        reward-xp: 650
+        reward-message: "<red>Die Umgebung ist sicherer geworden. Deine Patrouille hat Eindruck hinterlassen."
+        description:
+          - "<gray>Töte <white>60 feindliche Mobs</white>."
+        targets:
+          - "ZOMBIE"
+          - "DROWNED"
+          - "HUSK"
+          - "SKELETON"
+          - "STRAY"
+          - "WITHER_SKELETON"
+          - "SPIDER"
+          - "CAVE_SPIDER"
+          - "CREEPER"
+          - "PHANTOM"
+      tiefenschicht:
+        display-name: "Tiefenschicht"
+        icon: "DIAMOND_PICKAXE"
+        job: "miner"
+        objective-type: "BREAK_BLOCK"
+        required-amount: 72
+        reward-xp: 700
+        reward-message: "<blue>Aus dieser Schicht holen nur gute Miner so viel heraus."
+        description:
+          - "<gray>Baue <white>72 wertvolle Erze</white> ab."
+        targets:
+          - "COAL_ORE"
+          - "DEEPSLATE_COAL_ORE"
+          - "COPPER_ORE"
+          - "DEEPSLATE_COPPER_ORE"
+          - "IRON_ORE"
+          - "DEEPSLATE_IRON_ORE"
+          - "GOLD_ORE"
+          - "DEEPSLATE_GOLD_ORE"
+          - "REDSTONE_ORE"
+          - "DEEPSLATE_REDSTONE_ORE"
+          - "LAPIS_ORE"
+          - "DEEPSLATE_LAPIS_ORE"
+          - "DIAMOND_ORE"
+          - "DEEPSLATE_DIAMOND_ORE"
+          - "EMERALD_ORE"
+          - "DEEPSLATE_EMERALD_ORE"
+      forstschlag:
+        display-name: "Forstschlag"
+        icon: "IRON_AXE"
+        job: "woodcutter"
+        objective-type: "BREAK_BLOCK"
+        required-amount: 96
+        reward-xp: 620
+        reward-message: "<green>Der Sägeplatz läuft auf Hochtouren. Genau so soll's sein."
+        description:
+          - "<gray>Baue <white>96 natürliche Stämme</white> ab."
+      erntefest:
+        display-name: "Erntefest"
+        icon: "HAY_BLOCK"
+        job: "farmer"
+        objective-type: "BREAK_BLOCK"
+        required-amount: 120
+        reward-xp: 610
+        reward-message: "<yellow>Das Dorf feiert eine starke Erntewoche."
+        description:
+          - "<gray>Ernte <white>120 reife Feldfrüchte</white>."
+        targets:
+          - "WHEAT"
+          - "CARROTS"
+          - "POTATOES"
+          - "BEETROOTS"
+          - "COCOA"
+          - "SWEET_BERRY_BUSH"
+          - "NETHER_WART"
+      grosser_fang:
+        display-name: "Großer Fang"
+        icon: "NAUTILUS_SHELL"
+        job: "angler"
+        objective-type: "FISH_ITEM"
+        required-amount: 22
+        reward-xp: 630
+        reward-message: "<aqua>Die Fischer sprechen schon von deinem Namen am Steg."
+        description:
+          - "<gray>Fange <white>22 brauchbare Stücke</white> aus offenem Wasser."
+        targets:
+          - "COD"
+          - "SALMON"
+          - "TROPICAL_FISH"
+          - "PUFFERFISH"
+          - "BOW"
+          - "ENCHANTED_BOOK"
+          - "NAME_TAG"
+          - "SADDLE"
+          - "NAUTILUS_SHELL"
+      rezeptwoche:
+        display-name: "Rezeptwoche"
+        icon: "GLASS_BOTTLE"
+        job: "alchemist"
+        objective-type: "BREW_INGREDIENT"
+        required-amount: 26
+        reward-xp: 670
+        reward-message: "<light_purple>Die Rezeptkammer ist um einige starke Mischungen reicher."
+        description:
+          - "<gray>Nutze <white>26 Alchemie-Zutaten</white> beim Brauen."
+        targets:
+          - "NETHER_WART"
+          - "REDSTONE"
+          - "GLOWSTONE_DUST"
+          - "GUNPOWDER"
+          - "MAGMA_CREAM"
+          - "BLAZE_POWDER"
+          - "GLISTERING_MELON_SLICE"
+          - "GOLDEN_CARROT"
+
+  monthly:
+    pool:
+      meisterforst:
+        display-name: "Meisterforst"
+        icon: "DIAMOND_AXE"
+        job: "woodcutter"
+        objective-type: "BREAK_BLOCK"
+        required-amount: 320
+        reward-xp: 2100
+        reward-message: "<green>Der gesamte Forstbezirk profitiert von deinem Einsatz."
+        description:
+          - "<gray>Baue <white>320 natürliche Stämme</white> ab."
+      expedition_tiefe:
+        display-name: "Expedition Tiefe"
+        icon: "DIAMOND_PICKAXE"
+        job: "miner"
+        objective-type: "BREAK_BLOCK"
+        required-amount: 180
+        reward-xp: 2200
+        reward-message: "<blue>Deine Expedition hat seltene Adern und harte Tiefen bezwungen."
+        description:
+          - "<gray>Baue <white>180 wertvolle Erze</white> ab."
+        targets:
+          - "IRON_ORE"
+          - "DEEPSLATE_IRON_ORE"
+          - "GOLD_ORE"
+          - "DEEPSLATE_GOLD_ORE"
+          - "REDSTONE_ORE"
+          - "DEEPSLATE_REDSTONE_ORE"
+          - "LAPIS_ORE"
+          - "DEEPSLATE_LAPIS_ORE"
+          - "DIAMOND_ORE"
+          - "DEEPSLATE_DIAMOND_ORE"
+          - "EMERALD_ORE"
+          - "DEEPSLATE_EMERALD_ORE"
+          - "ANCIENT_DEBRIS"
+      goldene_ernte:
+        display-name: "Goldene Ernte"
+        icon: "GOLDEN_CARROT"
+        job: "farmer"
+        objective-type: "BREAK_BLOCK"
+        required-amount: 280
+        reward-xp: 2050
+        reward-message: "<yellow>Die Scheunen sind voll und das Dorf ist versorgt."
+        description:
+          - "<gray>Ernte <white>280 reife Feldfrüchte</white>."
+        targets:
+          - "WHEAT"
+          - "CARROTS"
+          - "POTATOES"
+          - "BEETROOTS"
+          - "COCOA"
+          - "SWEET_BERRY_BUSH"
+          - "NETHER_WART"
+          - "MELON"
+          - "PUMPKIN"
+      legende_der_see:
+        display-name: "Legende der See"
+        icon: "HEART_OF_THE_SEA"
+        job: "angler"
+        objective-type: "FISH_ITEM"
+        required-amount: 60
+        reward-xp: 2150
+        reward-message: "<aqua>Man spricht bereits von einer Angel-Legende an diesen Gewässern."
+        description:
+          - "<gray>Fange <white>60 Fische und Schätze</white> aus offenem Wasser."
+        targets:
+          - "COD"
+          - "SALMON"
+          - "TROPICAL_FISH"
+          - "PUFFERFISH"
+          - "BOW"
+          - "ENCHANTED_BOOK"
+          - "NAME_TAG"
+          - "SADDLE"
+          - "NAUTILUS_SHELL"
+      rat_der_elixiere:
+        display-name: "Rat der Elixiere"
+        icon: "DRAGON_BREATH"
+        job: "alchemist"
+        objective-type: "BREW_INGREDIENT"
+        required-amount: 48
+        reward-xp: 2300
+        reward-message: "<light_purple>Der Alchemistenrat erkennt deine außergewöhnlichen Mixturen an."
+        description:
+          - "<gray>Nutze <white>48 seltene Zutaten</white> beim Brauen."
+        targets:
+          - "GHAST_TEAR"
+          - "MAGMA_CREAM"
+          - "DRAGON_BREATH"
+          - "BREEZE_ROD"
+          - "RABBIT_FOOT"
+          - "PHANTOM_MEMBRANE"
+          - "GOLDEN_CARROT"
+          - "GLISTERING_MELON_SLICE"
+      schattenkrieg:
+        display-name: "Schattenkrieg"
+        icon: "NETHERITE_SWORD"
+        job: "warrior"
+        objective-type: "KILL_ENTITY"
+        required-amount: 220
+        reward-xp: 2400
+        reward-message: "<red>Die Schattenlinien wurden gebrochen. Deine Klinge hat diesen Monat viel geleistet."
+        description:
+          - "<gray>Töte <white>220 starke feindliche Mobs</white>."
+        targets:
+          - "ZOMBIE"
+          - "DROWNED"
+          - "HUSK"
+          - "SKELETON"
+          - "STRAY"
+          - "WITHER_SKELETON"
+          - "SPIDER"
+          - "CAVE_SPIDER"
+          - "CREEPER"
+          - "ENDERMAN"
+          - "BLAZE"
+          - "WITCH"
+          - "PHANTOM"
+          - "PILLAGER"
+          - "VINDICATOR"
+

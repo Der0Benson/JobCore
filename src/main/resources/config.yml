@@ -1,3 +1,5 @@
+﻿config-version: 2
+
 storage:
   type: "yaml"
   mysql:
@@ -30,6 +32,9 @@ bossbar:
   inactivity-seconds: 10
   title-template: "<green>%job% <gray>- Lv.<white>%level% <gray>- <white>%xp%/%needed%</white> <gray>(+%xpGained% XP)</gray>"
 
+leaderboards:
+  cache-seconds: 30
+
 menu:
   overview-title: "Job-Auswahl"
   path-title: "Levelpfad"
@@ -45,7 +50,15 @@ messages:
   reloaded: "<green>Konfiguration und Job-Werte wurden neu geladen."
   reward-unlocked: "<green>%job% Lv.%level% Belohnung: <white>%reward%</white>"
   storage-restart-required: "<yellow>Änderungen am Speicher-Backend greifen erst nach einem Serverneustart.</yellow>"
-  unknown-subcommand: "<red>Unbekannter Subcommand. Nutze <white>/jobcore config</white>, <white>/jobcore info</white>, <white>/jobcore reload</white> oder <white>/level</white>."
+  unknown-subcommand: "<red>Unbekannter Subcommand. Nutze <white>/jobcore config</white>, <white>/jobcore info</white>, <white>/jobcore reload</white>, <white>/jobcore stats</white>, <white>/jobcore addxp</white>, <white>/jobcore setlevel</white>, <white>/jobcore debugxp</white>, <white>/jobcore spawnquestnpc</white>, <white>/jobcore removequestnpc</white>, <white>/jobcore export</white> oder <white>/level</white>."
   info-header: "<gray>Deine Job-Level:"
   info-entry: "<gray>%job%: <white>Lv.%level%</white> <gray>- <white>%xp%/%needed%</white>"
   console-info: "<gray>JobCore läuft in Version <white>%version%</white><gray>."
+  quest-accepted: "<green>Quest angenommen: <white>%quest%</white>"
+  quest-completed: "<gold>Quest abgeschlossen: <white>%quest%</white><gray> Kehre zum Questmeister zurück.</gray>"
+  quest-claimed: "<green>Quest abgegeben: <white>%quest%</white><gray> (+%xp% %job%-XP)</gray>"
+  quest-abandoned: "<yellow>Quest abgebrochen: <white>%quest%</white>"
+  quest-already-active: "<yellow>Die Quest <white>%quest%</white><yellow> ist bereits aktiv.</yellow>"
+  quest-not-ready: "<red>Die Quest <white>%quest%</white><red> ist noch nicht abgeschlossen.</red>"
+  quest-cycle-finished: "<yellow>Diese %period%-Mission <white>%quest%</white><yellow> ist in diesem Zyklus bereits erledigt.</yellow>"
+

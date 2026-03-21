@@ -27,17 +27,20 @@ public final class NaturalLogListener implements Listener {
     private final JobManager jobManager;
     private final ConfigManager configManager;
     private final PlacedBlockTracker placedBlockTracker;
+    private final QuestManager questManager;
     private final Map<UUID, Deque<RecentLogBreak>> recentBreaks = new HashMap<>();
     private final Map<UUID, List<TreeComboSession>> comboSessions = new HashMap<>();
 
     public NaturalLogListener(
             final JobManager jobManager,
             final ConfigManager configManager,
-            final PlacedBlockTracker placedBlockTracker
+            final PlacedBlockTracker placedBlockTracker,
+            final QuestManager questManager
     ) {
         this.jobManager = jobManager;
         this.configManager = configManager;
         this.placedBlockTracker = placedBlockTracker;
+        this.questManager = questManager;
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -69,8 +72,11 @@ public final class NaturalLogListener implements Listener {
                 ? jobManager.rollBonusDrop(player.getUniqueId(), job)
                 : Optional.empty();
 
-        jobManager.grantExperience(player, job, xp);
+        final int granted = jobManager.grantExperience(player, job, xp);
         applyPerkDrops(event, block, player, doubleDrops, bonusDrop);
+        if (granted > 0) {
+            questManager.recordObjective(player, job, QuestObjectiveType.BREAK_BLOCK, block.getType().name(), 1);
+        }
         handleTreeCombo(player, block, job);
     }
 

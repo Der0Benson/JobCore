@@ -1,6 +1,7 @@
 package de.derbenson.jobcore;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -17,6 +18,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public final class LevelMenuManager implements Listener {
 
@@ -24,7 +26,9 @@ public final class LevelMenuManager implements Listener {
     private static final int CLOSE_SLOT = 53;
     private static final int OVERVIEW_HEADER_SLOT = 4;
     private static final int OVERVIEW_INFO_SLOT = 22;
+    private static final int OVERVIEW_LEADERBOARD_SLOT = 40;
     private static final List<Integer> OVERVIEW_JOB_SLOTS = List.of(10, 13, 16, 28, 31, 34);
+    private static final int PATH_LEADERBOARD_SLOT = 50;
     private static final List<Integer> PATH_NODE_SLOTS = List.of(
             27, 28, 19, 10,
             11, 12,
@@ -40,19 +44,28 @@ public final class LevelMenuManager implements Listener {
     private static final int SUMMARY_SLOT = 49;
     private static final int NEXT_SLOT = 51;
     private static final int PATH_PAGE_SIZE = PATH_NODE_SLOTS.size();
+    private static final int LEADERBOARD_HEADER_SLOT = 4;
+    private static final int LEADERBOARD_BACK_SLOT = 45;
+    private static final int LEADERBOARD_SUMMARY_SLOT = 49;
+    private static final List<Integer> LEADERBOARD_JOB_SLOTS = List.of(10, 13, 16, 28, 31, 34);
+    private static final int LEADERBOARD_QUEST_SLOT = 22;
     private final ConfigManager configManager;
     private final JobManager jobManager;
+    private final LeaderboardManager leaderboardManager;
     private final DecimalFormat percentFormat = new DecimalFormat("0.##%");
     private final List<DummyJobCard> dummyJobs = List.of(
-            new DummyJobCard("Fischer", Material.FISHING_ROD, "Seen, Ozeane und seltene F\u00e4nge."),
-            new DummyJobCard("J\u00e4ger", Material.BOW, "Mobs, Beute und Jagdserien."),
-            new DummyJobCard("Alchemist", Material.BREWING_STAND, "Zutaten, Tr\u00e4nke und Experimente.")
+            new DummyJobCard("J\u00e4ger", Material.BOW, "Mobs, Beute und Jagdserien.")
     );
 
     
-    public LevelMenuManager(final ConfigManager configManager, final JobManager jobManager) {
+    public LevelMenuManager(
+            final ConfigManager configManager,
+            final JobManager jobManager,
+            final LeaderboardManager leaderboardManager
+    ) {
         this.configManager = configManager;
         this.jobManager = jobManager;
+        this.leaderboardManager = leaderboardManager;
     }
 
     
@@ -64,11 +77,26 @@ public final class LevelMenuManager implements Listener {
         fillOverviewBackground(inventory);
         inventory.setItem(OVERVIEW_HEADER_SLOT, createItem(Material.BOOK, "<gold>Job-Auswahl</gold>", List.of(
                 "<gray>W\u00e4hle einen Job, dessen Pfad du genauer sehen m\u00f6chtest.",
-                "<gray><white>Holzf\u00e4ller</white>, <white>Miner</white> und <white>Farmer</white> sind spielbar.",
+                "<gray><white>Holzf\u00e4ller</white>, <white>Miner</white>, <white>Farmer</white>, <white>Krieger</white>, <white>Angler</white> und <white>Alchemist</white> sind spielbar.",
                 "<gray>Weitere Jobs sind bereits als Platzhalter vorbereitet."
         ), false));
         placeOverviewSummary(player, inventory);
         placeOverviewJobs(player, inventory);
+        placeOverviewLeaderboardButton(inventory);
+        placeCloseButton(inventory);
+
+        player.openInventory(inventory);
+    }
+
+    public void openLeaderboard(final Player player) {
+        final LevelMenuHolder holder = new LevelMenuHolder(LevelMenuView.LEADERBOARD, null, 0);
+        final Inventory inventory = Bukkit.createInventory(holder, SIZE, "Bestenlisten");
+        holder.setInventory(inventory);
+
+        fillOverviewBackground(inventory);
+        placeLeaderboardHeader(inventory);
+        placeLeaderboardEntries(inventory);
+        placeLeaderboardFooter(inventory);
         placeCloseButton(inventory);
 
         player.openInventory(inventory);
@@ -117,6 +145,11 @@ public final class LevelMenuManager implements Listener {
             return;
         }
 
+        if (holder.getView() == LevelMenuView.LEADERBOARD) {
+            handleLeaderboardClick(player, slot);
+            return;
+        }
+
         handlePathClick(player, holder, slot);
     }
 
@@ -128,6 +161,11 @@ public final class LevelMenuManager implements Listener {
     }
 
     private void handleOverviewClick(final Player player, final int slot) {
+        if (slot == OVERVIEW_LEADERBOARD_SLOT) {
+            openLeaderboard(player);
+            return;
+        }
+
         final List<Job> jobs = visibleJobs();
         for (int index = 0; index < jobs.size() && index < OVERVIEW_JOB_SLOTS.size(); index++) {
             if (slot == OVERVIEW_JOB_SLOTS.get(index)) {
@@ -160,12 +198,31 @@ public final class LevelMenuManager implements Listener {
             openOverview(player);
             return;
         }
+        if (slot == PATH_LEADERBOARD_SLOT) {
+            openLeaderboard(player);
+            return;
+        }
         if (slot == PREVIOUS_SLOT && holder.getPage() > 0) {
             openPath(player, job, holder.getPage() - 1);
             return;
         }
         if (slot == NEXT_SLOT && holder.getPage() < (totalPages - 1)) {
             openPath(player, job, holder.getPage() + 1);
+        }
+    }
+
+    private void handleLeaderboardClick(final Player player, final int slot) {
+        if (slot == LEADERBOARD_BACK_SLOT) {
+            openOverview(player);
+            return;
+        }
+
+        final List<Job> jobs = visibleJobs();
+        for (int index = 0; index < jobs.size() && index < LEADERBOARD_JOB_SLOTS.size(); index++) {
+            if (slot == LEADERBOARD_JOB_SLOTS.get(index)) {
+                openPath(player, jobs.get(index), 0);
+                return;
+            }
         }
     }
 
@@ -219,6 +276,19 @@ public final class LevelMenuManager implements Listener {
             }
             inventory.setItem(OVERVIEW_JOB_SLOTS.get(index++), createDummyJobItem(dummyJobCard));
         }
+    }
+
+    private void placeOverviewLeaderboardButton(final Inventory inventory) {
+        inventory.setItem(OVERVIEW_LEADERBOARD_SLOT, createItem(
+                Material.TOTEM_OF_UNDYING,
+                "<gold>Bestenlisten</gold>",
+                List.of(
+                        "<gray>Sieh dir die stärksten Spieler pro Job an.",
+                        "<gray>Außerdem findest du hier die aktivsten Questspieler.",
+                        "<yellow>Klicke, um die Bestenlisten zu öffnen."
+                ),
+                true
+        ));
     }
 
     private void placePathGrid(final Player player, final Inventory inventory, final Job job, final int page, final int maxLevel) {
@@ -275,6 +345,53 @@ public final class LevelMenuManager implements Listener {
                 Material.SPECTRAL_ARROW,
                 configManager.getLevelMenuNextPageLabel(),
                 page < (totalPages - 1) ? "<gray>\u00d6ffnet die n\u00e4chste Pfad-Seite.</gray>" : "<dark_gray>Dies ist bereits die letzte Seite.</dark_gray>"
+        ));
+        inventory.setItem(PATH_LEADERBOARD_SLOT, createItem(
+                Material.TOTEM_OF_UNDYING,
+                "<gold>Bestenlisten</gold>",
+                List.of("<gray>Öffnet die globalen Job- und Quest-Rankings.</gray>"),
+                true
+        ));
+    }
+
+    private void placeLeaderboardHeader(final Inventory inventory) {
+        inventory.setItem(LEADERBOARD_HEADER_SLOT, createItem(
+                Material.TOTEM_OF_UNDYING,
+                "<gold>Bestenlisten</gold>",
+                List.of(
+                        "<gray>Hier siehst du die stärksten Spieler pro Job.",
+                        "<gray>In der Mitte findest du außerdem die aktivsten Questspieler."
+                ),
+                true
+        ));
+    }
+
+    private void placeLeaderboardEntries(final Inventory inventory) {
+        final List<Job> jobs = visibleJobs();
+        for (int index = 0; index < jobs.size() && index < LEADERBOARD_JOB_SLOTS.size(); index++) {
+            final Job job = jobs.get(index);
+            inventory.setItem(LEADERBOARD_JOB_SLOTS.get(index), createJobLeaderboardItem(job));
+        }
+
+        inventory.setItem(LEADERBOARD_QUEST_SLOT, createQuestLeaderboardItem());
+    }
+
+    private void placeLeaderboardFooter(final Inventory inventory) {
+        inventory.setItem(LEADERBOARD_BACK_SLOT, createItem(
+                Material.BOOK,
+                configManager.getLevelMenuBackLabel(),
+                List.of("<gray>Zurück zur Job-Auswahl.</gray>"),
+                false
+        ));
+        inventory.setItem(LEADERBOARD_SUMMARY_SLOT, createItem(
+                Material.NETHER_STAR,
+                "<green>Ranking-Info</green>",
+                List.of(
+                        "<gray>Job-Rankings sortieren nach <white>Level</white> und dann <white>XP</white>.",
+                        "<gray>Quest-Ranking sortiert nach <white>abgegebenen Missionen</white>.",
+                        "<yellow>Klicke auf einen Job, um direkt seinen Pfad zu öffnen."
+                ),
+                false
         ));
     }
 
@@ -433,6 +550,56 @@ public final class LevelMenuManager implements Listener {
         );
     }
 
+    private ItemStack createJobLeaderboardItem(final Job job) {
+        final List<LeaderboardManager.JobLeaderboardEntry> topEntries = leaderboardManager.getTopPlayersForJob(job, 5);
+        final List<String> lore = new ArrayList<>();
+
+        if (topEntries.isEmpty()) {
+            lore.add(leaderboardManager.isRefreshing()
+                    ? "<gray>Ranking wird gerade aktualisiert...</gray>"
+                    : "<dark_gray>Noch keine Einträge vorhanden.");
+        } else {
+            int rank = 1;
+            for (final LeaderboardManager.JobLeaderboardEntry entry : topEntries) {
+                lore.add("<gray>#" + rank++ + " <white>" + entry.playerName() + "</white> <gray>· Lv.<white>"
+                        + entry.level() + "</white> <gray>· <white>" + entry.xp() + " XP</white>");
+            }
+        }
+
+        lore.add("<yellow>Klicke, um den Pfad zu öffnen.");
+
+        return createItem(
+                configManager.getJobIcon(job),
+                "<green>" + configManager.getJobDisplayName(job) + "</green>",
+                lore,
+                true
+        );
+    }
+
+    private ItemStack createQuestLeaderboardItem() {
+        final List<LeaderboardManager.QuestLeaderboardEntry> topEntries = leaderboardManager.getTopQuestPlayers(5);
+        final List<String> lore = new ArrayList<>();
+
+        if (topEntries.isEmpty()) {
+            lore.add(leaderboardManager.isRefreshing()
+                    ? "<gray>Ranking wird gerade aktualisiert...</gray>"
+                    : "<dark_gray>Noch keine Quest-Abgaben vorhanden.");
+        } else {
+            int rank = 1;
+            for (final LeaderboardManager.QuestLeaderboardEntry entry : topEntries) {
+                lore.add("<gray>#" + rank++ + " <white>" + entry.playerName() + "</white> <gray>· <white>"
+                        + entry.totalClaims() + "</white> abgeschlossene Missionen");
+            }
+        }
+
+        return createItem(
+                Material.WRITABLE_BOOK,
+                "<light_purple>Questspieler</light_purple>",
+                lore,
+                true
+        );
+    }
+
     private ItemStack createDummyJobItem(final DummyJobCard dummyJobCard) {
         return createItem(
                 dummyJobCard.icon(),
@@ -494,10 +661,11 @@ public final class LevelMenuManager implements Listener {
     ) {
         final List<Component> lines = lore.stream()
                 .map(configManager::deserialize)
+                .map(this::withoutItalic)
                 .toList();
         final ItemStack itemStack = new ItemStack(material);
         final ItemMeta itemMeta = itemStack.getItemMeta();
-        itemMeta.displayName(configManager.deserialize(title));
+        itemMeta.displayName(withoutItalic(configManager.deserialize(title)));
         itemMeta.lore(lines);
         itemMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS);
         if (glowing) {
@@ -507,7 +675,12 @@ public final class LevelMenuManager implements Listener {
         return itemStack;
     }
 
+    private Component withoutItalic(final Component component) {
+        return component.decoration(TextDecoration.ITALIC, false);
+    }
+
     private record DummyJobCard(String displayName, Material icon, String description) {
     }
 }
+
 

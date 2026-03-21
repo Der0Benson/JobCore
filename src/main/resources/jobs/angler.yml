@@ -1,0 +1,92 @@
+﻿config-version: 2
+
+display-name: "Angler"
+icon: "FISHING_ROD"
+bossbar-color: "WHITE"
+
+anti-farm:
+  require-open-water: true
+  minimum-cast-seconds: 3.0
+  max-player-move-distance: 3.0
+  same-spot:
+    window-seconds: 60
+    hook-radius: 1.5
+    player-radius: 1.5
+    threshold: 8
+    multiplier: 0.5
+
+xp-values:
+  COD: 6
+  SALMON: 7
+  TROPICAL_FISH: 9
+  PUFFERFISH: 10
+  BOW: 12
+  ENCHANTED_BOOK: 16
+  NAME_TAG: 14
+  SADDLE: 14
+  NAUTILUS_SHELL: 18
+  LILY_PAD: 5
+  BOWL: 4
+  LEATHER_BOOTS: 5
+  ROTTEN_FLESH: 4
+  STICK: 4
+  STRING: 5
+  BONE: 5
+  INK_SAC: 6
+  TRIPWIRE_HOOK: 5
+
+perks:
+  - level: 10
+    type: XP_BOOST
+    value: 0.02
+    display: "<white>+2% Job-XP"
+  - level: 25
+    type: DOUBLE_DROP_CHANCE
+    value: 0.02
+    display: "<white>2% Chance auf doppelten Fang"
+  - level: 50
+    type: BONUS_DROP_CHANCE
+    value: 0.05
+    display: "<white>5% Chance auf Bonus-Fang"
+
+path-rewards:
+  5:
+    - type: MESSAGE
+      display: "<aqua>Erster Fang"
+      value: "<white>Du hast die ersten Stufen des Angler-Pfads erreicht."
+  15:
+    - type: ITEM
+      material: SALMON
+      amount: 8
+      display: "<white>8 Lachs"
+  30:
+    - type: ITEM
+      material: NAME_TAG
+      amount: 1
+      display: "<white>1 Namensschild"
+  50:
+    - type: MESSAGE
+      display: "<gold>Meilenstein Level 50"
+      value: "<gold>Du hast Level 50 als Angler erreicht."
+  75:
+    - type: ITEM
+      material: NAUTILUS_SHELL
+      amount: 2
+      display: "<white>2 Nautilusschalen"
+  100:
+    - type: MESSAGE
+      display: "<yellow>Meister der Gewässer"
+      value: "<yellow>Du hast den Angler-Pfad auf Level 100 abgeschlossen."
+
+bonus-drops:
+  - material: NAUTILUS_SHELL
+    amount: 1
+    weight: 30
+  - material: PRISMARINE_SHARD
+    amount: 3
+    weight: 35
+  - material: PRISMARINE_CRYSTALS
+    amount: 2
+    weight: 35
+
+

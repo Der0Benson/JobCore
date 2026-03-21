@@ -13,10 +13,16 @@ public final class MinerListener implements Listener {
 
     private final JobManager jobManager;
     private final PlacedBlockTracker placedBlockTracker;
+    private final QuestManager questManager;
 
-    public MinerListener(final JobManager jobManager, final PlacedBlockTracker placedBlockTracker) {
+    public MinerListener(
+            final JobManager jobManager,
+            final PlacedBlockTracker placedBlockTracker,
+            final QuestManager questManager
+    ) {
         this.jobManager = jobManager;
         this.placedBlockTracker = placedBlockTracker;
+        this.questManager = questManager;
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -44,8 +50,11 @@ public final class MinerListener implements Listener {
                 ? jobManager.rollBonusDrop(player.getUniqueId(), job)
                 : Optional.empty();
 
-        jobManager.grantExperience(player, job, xp);
+        final int granted = jobManager.grantExperience(player, job, xp);
         applyPerkDrops(event, block, player, doubleDrops, bonusDrop);
+        if (granted > 0) {
+            questManager.recordObjective(player, job, QuestObjectiveType.BREAK_BLOCK, block.getType().name(), 1);
+        }
     }
 
     private void applyPerkDrops(

@@ -1,4 +1,4 @@
-name: JobCore
+﻿name: JobCore
 version: '${version}'
 main: de.derbenson.jobcore.JobCore
 api-version: '1.21'
@@ -8,17 +8,33 @@ libraries:
 commands:
   jobcore:
     description: Hauptbefehl für JobCore.
-    usage: /jobcore [config|info|reload]
+    usage: /jobcore [config|info|reload|stats|addxp|setlevel|debugxp|spawnquestnpc|removequestnpc|export]
   level:
     description: Öffnet den Levelpfad.
     usage: /level
 permissions:
-  customjobs.admin:
+  jobcore.admin:
     description: Erlaubt administrative JobCore-Befehle.
     default: op
-  customjobs.config:
+  jobcore.config:
     description: Erlaubt das Umschalten der eigenen BossBar.
     default: true
-  customjobs.level:
+  jobcore.level:
     description: Erlaubt das Öffnen des Level-Menüs.
     default: true
+  customjobs.admin:
+    description: Legacy-Permission für administrative JobCore-Befehle.
+    default: false
+    children:
+      jobcore.admin: true
+  customjobs.config:
+    description: Legacy-Permission für das Umschalten der eigenen BossBar.
+    default: false
+    children:
+      jobcore.config: true
+  customjobs.level:
+    description: Legacy-Permission für das Öffnen des Level-Menüs.
+    default: false
+    children:
+      jobcore.level: true
+

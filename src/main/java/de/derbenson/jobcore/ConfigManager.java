@@ -4,6 +4,7 @@ import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Material;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -12,25 +13,34 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 public final class ConfigManager {
 
+    private static final int MAIN_CONFIG_VERSION = 2;
+    private static final int QUEST_CONFIG_VERSION = 2;
+    private static final int JOB_CONFIG_VERSION = 2;
     private static final String DEFAULT_BOSSBAR_TEMPLATE =
             "<green>%job% <gray>- Lv.<white>%level% <gray>- <white>%xp%/%needed%</white> <gray>(+%xpGained% XP)</gray>";
 
     private final JavaPlugin plugin;
     private final MiniMessage miniMessage;
     private final File jobDirectory;
+    private final File questFile;
     private FileConfiguration configuration;
+    private FileConfiguration questConfiguration;
     private final Map<Job, FileConfiguration> jobConfigurations = new EnumMap<>(Job.class);
 
     public ConfigManager(final JavaPlugin plugin) {
         this.plugin = plugin;
         this.miniMessage = MiniMessage.miniMessage();
         this.jobDirectory = new File(plugin.getDataFolder(), "jobs");
+        this.questFile = new File(plugin.getDataFolder(), "quests.yml");
         plugin.saveDefaultConfig();
         reload();
     }
@@ -38,9 +48,13 @@ public final class ConfigManager {
     public void reload() {
         plugin.reloadConfig();
         this.configuration = plugin.getConfig();
-        this.configuration.options().copyDefaults(true);
-        plugin.saveConfig();
+        configuration.options().copyDefaults(true);
+        final boolean changed = migrateManagedConfiguration(configuration, MAIN_CONFIG_VERSION);
+        if (changed) {
+            plugin.saveConfig();
+        }
         reloadJobConfigurations();
+        reloadQuestConfiguration();
     }
 
     public FileConfiguration getConfiguration() {
@@ -49,6 +63,10 @@ public final class ConfigManager {
 
     public FileConfiguration getJobConfiguration(final Job job) {
         return jobConfigurations.getOrDefault(job, new YamlConfiguration());
+    }
+
+    public FileConfiguration getQuestConfiguration() {
+        return questConfiguration == null ? new YamlConfiguration() : questConfiguration;
     }
 
     public Component getMessage(final String path) {
@@ -171,6 +189,10 @@ public final class ConfigManager {
         return Math.max(0, configuration.getInt("combo.required-leaves", 6));
     }
 
+    public long getLeaderboardCacheMillis() {
+        return Math.max(5L, configuration.getLong("leaderboards.cache-seconds", 30L)) * 1000L;
+    }
+
     public String getLevelOverviewTitle() {
         return configuration.getString("menu.overview-title", "Job-Auswahl");
     }
@@ -180,11 +202,11 @@ public final class ConfigManager {
     }
 
     public String getLevelMenuCloseLabel() {
-        return configuration.getString("menu.close-label", "<red>SchlieÃŸen");
+        return configuration.getString("menu.close-label", "<red>Schließen");
     }
 
     public String getLevelMenuBackLabel() {
-        return configuration.getString("menu.back-label", "<yellow>Zur Ãœbersicht");
+        return configuration.getString("menu.back-label", "<yellow>Zur Übersicht");
     }
 
     public String getLevelMenuPreviousPageLabel() {
@@ -192,7 +214,7 @@ public final class ConfigManager {
     }
 
     public String getLevelMenuNextPageLabel() {
-        return configuration.getString("menu.next-page-label", "<gold>NÃ¤chste Seite");
+        return configuration.getString("menu.next-page-label", "<gold>Nächste Seite");
     }
 
     public String getJobDisplayName(final Job job) {
@@ -203,7 +225,7 @@ public final class ConfigManager {
         final String raw = getJobConfiguration(job).getString("icon", job.getIcon().name());
         final Material material = Material.matchMaterial(raw);
         if (material == null) {
-            plugin.getLogger().warning("UngÃ¼ltiges Job-Icon fÃ¼r " + job.getId() + ": " + raw + ". Verwende " + job.getIcon().name() + ".");
+            plugin.getLogger().warning("Ungültiges Job-Icon für " + job.getId() + ": " + raw + ". Verwende " + job.getIcon().name() + ".");
             return job.getIcon();
         }
         return material;
@@ -214,7 +236,7 @@ public final class ConfigManager {
         try {
             return BossBar.Color.valueOf(raw.toUpperCase(Locale.ROOT));
         } catch (final IllegalArgumentException exception) {
-            plugin.getLogger().warning("UngÃ¼ltige BossBar-Farbe fÃ¼r Job " + job.getId() + ": " + raw + ". Verwende Standardfarbe " + job.getBarColor().name() + ".");
+            plugin.getLogger().warning("Ungültige BossBar-Farbe für Job " + job.getId() + ": " + raw + ". Verwende Standardfarbe " + job.getBarColor().name() + ".");
             return job.getBarColor();
         }
     }
@@ -233,12 +255,13 @@ public final class ConfigManager {
             }
 
             if (!jobFile.exists()) {
-                plugin.getLogger().warning("Job-Datei fehlt fÃ¼r " + job.getId() + ": " + jobFile.getAbsolutePath());
+                plugin.getLogger().warning("Job-Datei fehlt für " + job.getId() + ": " + jobFile.getAbsolutePath());
                 jobConfigurations.put(job, new YamlConfiguration());
                 continue;
             }
 
             final YamlConfiguration jobConfiguration = YamlConfiguration.loadConfiguration(jobFile);
+            boolean changed = false;
             try (InputStream inputStream = plugin.getResource(resourcePath)) {
                 if (inputStream != null) {
                     final YamlConfiguration defaults = YamlConfiguration.loadConfiguration(
@@ -246,13 +269,200 @@ public final class ConfigManager {
                     );
                     jobConfiguration.setDefaults(defaults);
                     jobConfiguration.options().copyDefaults(true);
-                    jobConfiguration.save(jobFile);
+                    changed = true;
                 }
             } catch (final Exception exception) {
                 plugin.getLogger().warning("Job-Datei konnte nicht mit Defaults ergänzt werden für " + job.getId() + ": " + exception.getMessage());
             }
 
+            changed |= migrateManagedConfiguration(jobConfiguration, JOB_CONFIG_VERSION);
+            if (changed) {
+                saveYaml(jobConfiguration, jobFile);
+            }
+
             jobConfigurations.put(job, jobConfiguration);
+        }
+    }
+
+    private void reloadQuestConfiguration() {
+        if (!questFile.exists() && plugin.getResource("quests.yml") != null) {
+            plugin.saveResource("quests.yml", false);
+        }
+
+        if (!questFile.exists()) {
+            questConfiguration = new YamlConfiguration();
+            return;
+        }
+
+        final YamlConfiguration loadedConfiguration = YamlConfiguration.loadConfiguration(questFile);
+        boolean changed = false;
+        try (InputStream inputStream = plugin.getResource("quests.yml")) {
+            if (inputStream != null) {
+                final YamlConfiguration defaults = YamlConfiguration.loadConfiguration(
+                        new InputStreamReader(inputStream, StandardCharsets.UTF_8)
+                );
+                loadedConfiguration.setDefaults(defaults);
+                loadedConfiguration.options().copyDefaults(true);
+                changed = true;
+            }
+        } catch (final Exception exception) {
+            plugin.getLogger().warning("Quest-Datei konnte nicht mit Defaults ergänzt werden: " + exception.getMessage());
+        }
+
+        changed |= migrateManagedConfiguration(loadedConfiguration, QUEST_CONFIG_VERSION);
+        if (changed) {
+            saveYaml(loadedConfiguration, questFile);
+        }
+
+        questConfiguration = loadedConfiguration;
+    }
+
+    private boolean migrateManagedConfiguration(final ConfigurationSection configurationSection, final int latestVersion) {
+        boolean changed = repairConfigurationSection(configurationSection);
+        if (configurationSection.getInt("config-version", 0) < latestVersion) {
+            configurationSection.set("config-version", latestVersion);
+            changed = true;
+        }
+        return changed;
+    }
+
+    private boolean repairConfigurationSection(final ConfigurationSection configurationSection) {
+        boolean changed = false;
+        for (final String key : configurationSection.getKeys(false)) {
+            final Object value = configurationSection.get(key);
+            if (value instanceof ConfigurationSection childSection) {
+                changed |= repairConfigurationSection(childSection);
+                continue;
+            }
+
+            if (value instanceof String stringValue) {
+                final String fallback = getDefaultString(configurationSection, key);
+                final String repaired = repairMojibake(stringValue, fallback);
+                if (!repaired.equals(stringValue)) {
+                    configurationSection.set(key, repaired);
+                    changed = true;
+                }
+                continue;
+            }
+
+            if (value instanceof List<?> listValue) {
+                final RepairResult repairResult = repairList(listValue);
+                final List<?> repairedValues = (List<?>) repairResult.value();
+                if (repairResult.changed()) {
+                    configurationSection.set(key, repairedValues);
+                    changed = true;
+                }
+            }
+        }
+        return changed;
+    }
+
+    private RepairResult repairList(final List<?> listValue) {
+        final List<Object> repairedValues = new ArrayList<>(listValue.size());
+        boolean listChanged = false;
+        for (final Object entry : listValue) {
+            final RepairResult repairResult = repairObject(entry);
+            repairedValues.add(repairResult.value());
+            listChanged |= repairResult.changed();
+        }
+        return new RepairResult(repairedValues, listChanged);
+    }
+
+    private RepairResult repairMap(final Map<?, ?> mapValue) {
+        final Map<Object, Object> repairedValues = new LinkedHashMap<>();
+        boolean changed = false;
+        for (final Map.Entry<?, ?> entry : mapValue.entrySet()) {
+            final RepairResult repairResult = repairObject(entry.getValue());
+            repairedValues.put(entry.getKey(), repairResult.value());
+            changed |= repairResult.changed();
+        }
+        return new RepairResult(repairedValues, changed);
+    }
+
+    private RepairResult repairObject(final Object value) {
+        if (value instanceof String stringValue) {
+            final String repaired = repairMojibake(stringValue, null);
+            return new RepairResult(repaired, !repaired.equals(stringValue));
+        }
+        if (value instanceof List<?> listValue) {
+            return repairList(listValue);
+        }
+        if (value instanceof Map<?, ?> mapValue) {
+            return repairMap(mapValue);
+        }
+        return new RepairResult(value, false);
+    }
+
+    private String repairMojibake(final String input, final String fallback) {
+        if (input == null || input.isBlank()) {
+            return input;
+        }
+
+        if (input.contains("\uFFFD") && fallback != null && !fallback.contains("\uFFFD")) {
+            return fallback;
+        }
+
+        if (!looksLikeMojibake(input)) {
+            return input;
+        }
+
+        final String repaired = new String(input.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+        return qualityScore(repaired) > qualityScore(input) ? repaired : input;
+    }
+
+    private boolean looksLikeMojibake(final String input) {
+        return input.contains("\uFFFD")
+                || input.contains("Ã")
+                || input.contains("Â")
+                || input.contains("â");
+    }
+
+    private int qualityScore(final String input) {
+        int score = 0;
+        score += countOccurrences(input, "ä") * 4;
+        score += countOccurrences(input, "ö") * 4;
+        score += countOccurrences(input, "ü") * 4;
+        score += countOccurrences(input, "Ä") * 4;
+        score += countOccurrences(input, "Ö") * 4;
+        score += countOccurrences(input, "Ü") * 4;
+        score += countOccurrences(input, "ß") * 4;
+        score += countOccurrences(input, "§") * 2;
+        score -= countOccurrences(input, "\uFFFD") * 8;
+        score -= countOccurrences(input, "Ã") * 4;
+        score -= countOccurrences(input, "Â") * 4;
+        score -= countOccurrences(input, "â") * 3;
+        return score;
+    }
+
+    private String getDefaultString(final ConfigurationSection configurationSection, final String key) {
+        if (configurationSection.getRoot() == null || configurationSection.getRoot().getDefaults() == null) {
+            return null;
+        }
+
+        final String currentPath = configurationSection.getCurrentPath();
+        final String fullPath = currentPath == null || currentPath.isBlank() ? key : currentPath + "." + key;
+        if (!configurationSection.getRoot().getDefaults().isString(fullPath)) {
+            return null;
+        }
+
+        return configurationSection.getRoot().getDefaults().getString(fullPath);
+    }
+
+    private int countOccurrences(final String input, final String token) {
+        int count = 0;
+        int index = 0;
+        while ((index = input.indexOf(token, index)) >= 0) {
+            count++;
+            index += token.length();
+        }
+        return count;
+    }
+
+    private void saveYaml(final YamlConfiguration configuration, final File file) {
+        try {
+            configuration.save(file);
+        } catch (final Exception exception) {
+            plugin.getLogger().warning("Datei konnte nicht gespeichert werden: " + file.getAbsolutePath() + " - " + exception.getMessage());
         }
     }
 
@@ -262,6 +472,9 @@ public final class ConfigManager {
             result = result.replace('%' + entry.getKey() + '%', entry.getValue());
         }
         return result;
+    }
+
+    private record RepairResult(Object value, boolean changed) {
     }
 }
 

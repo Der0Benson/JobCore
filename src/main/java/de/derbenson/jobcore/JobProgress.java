@@ -47,5 +47,9 @@ public final class JobProgress {
     public void setFractionalXp(final double fractionalXp) {
         this.fractionalXp = Math.max(0.0D, fractionalXp);
     }
+
+    public JobProgress copy() {
+        return new JobProgress(xp, level, fractionalXp);
+    }
 }
 

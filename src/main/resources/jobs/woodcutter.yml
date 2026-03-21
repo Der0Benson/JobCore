@@ -1,3 +1,5 @@
+﻿config-version: 2
+
 display-name: "Holzfäller"
 icon: "IRON_AXE"
 bossbar-color: "GREEN"
@@ -83,3 +85,5 @@ bonus-drops:
   - material: MOSS_BLOCK
     amount: 1
     weight: 15
+
+

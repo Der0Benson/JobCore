@@ -1,3 +1,5 @@
+﻿config-version: 2
+
 display-name: "Farmer"
 icon: "GOLDEN_HOE"
 bossbar-color: "YELLOW"
@@ -83,3 +85,4 @@ bonus-drops:
   - material: GOLDEN_CARROT
     amount: 2
     weight: 25
+

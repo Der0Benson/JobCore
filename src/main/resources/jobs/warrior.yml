@@ -1,0 +1,157 @@
+﻿config-version: 2
+
+display-name: "Krieger"
+icon: "IRON_SWORD"
+bossbar-color: "RED"
+
+anti-farm:
+  block-tamed: true
+  block-custom-named: true
+  block-leashed: true
+  blocked-spawn-reasons:
+    - SPAWNER
+    - SPAWNER_EGG
+    - TRIAL_SPAWNER
+    - BREEDING
+    - COMMAND
+    - CUSTOM
+  blocked-entity-types:
+    - COW
+    - SHEEP
+    - PIG
+    - CHICKEN
+    - RABBIT
+    - HORSE
+    - DONKEY
+    - MULE
+    - LLAMA
+    - TRADER_LLAMA
+    - CAMEL
+    - TURTLE
+    - COD
+    - SALMON
+    - TROPICAL_FISH
+    - PUFFERFISH
+    - SQUID
+    - GLOW_SQUID
+  rapid-kill:
+    window-seconds: 15
+    radius: 12.0
+    threshold: 10
+    multiplier: 0.5
+
+entity-xp-values:
+  ZOMBIE: 9
+  SKELETON: 9
+  SPIDER: 8
+  CREEPER: 11
+  ENDERMAN: 15
+  WITCH: 18
+  SLIME: 7
+  MAGMA_CUBE: 8
+  BLAZE: 14
+  GHAST: 18
+  PIGLIN: 10
+  PIGLIN_BRUTE: 18
+  ZOMBIFIED_PIGLIN: 11
+  HOGLIN: 14
+  ZOGLIN: 16
+  WITHER_SKELETON: 16
+  STRAY: 12
+  HUSK: 12
+  DROWNED: 12
+  PHANTOM: 13
+  PILLAGER: 12
+  VINDICATOR: 16
+  EVOKER: 25
+  RAVAGER: 28
+  GUARDIAN: 16
+  ELDER_GUARDIAN: 40
+  SHULKER: 20
+  SILVERFISH: 5
+  ENDERMITE: 6
+  BOGGED: 13
+  BREEZE: 18
+  WARDEN: 120
+  WITHER: 100
+  ENDER_DRAGON: 250
+  COW: 5
+  SHEEP: 5
+  PIG: 5
+  CHICKEN: 4
+  RABBIT: 4
+  GOAT: 7
+  HORSE: 8
+  DONKEY: 7
+  MULE: 7
+  LLAMA: 7
+  TRADER_LLAMA: 8
+  WOLF: 8
+  FOX: 6
+  POLAR_BEAR: 14
+  PANDA: 12
+  TURTLE: 6
+  DOLPHIN: 8
+  SQUID: 4
+  GLOW_SQUID: 5
+  SALMON: 3
+  COD: 3
+  TROPICAL_FISH: 3
+  PUFFERFISH: 4
+  CAMEL: 10
+
+perks:
+  - level: 10
+    type: XP_BOOST
+    value: 0.02
+    display: "<red>+2% Job-XP"
+  - level: 25
+    type: DOUBLE_DROP_CHANCE
+    value: 0.02
+    display: "<red>2% Chance auf doppelte Mob-Drops"
+  - level: 50
+    type: BONUS_DROP_CHANCE
+    value: 0.05
+    display: "<red>5% Chance auf Bonus-Beute"
+
+path-rewards:
+  5:
+    - type: MESSAGE
+      display: "<aqua>Erster Sieg"
+      value: "<red>Du hast die ersten Kämpfe des Krieger-Pfads gemeistert."
+  15:
+    - type: ITEM
+      material: COOKED_BEEF
+      amount: 8
+      display: "<red>8 Steaks"
+  30:
+    - type: ITEM
+      material: ARROW
+      amount: 24
+      display: "<red>24 Pfeile"
+  50:
+    - type: MESSAGE
+      display: "<gold>Meilenstein Level 50"
+      value: "<gold>Du hast Level 50 als Krieger erreicht."
+  75:
+    - type: ITEM
+      material: GOLDEN_APPLE
+      amount: 2
+      display: "<red>2 goldene Äpfel"
+  100:
+    - type: MESSAGE
+      display: "<yellow>Krieger-Meister"
+      value: "<yellow>Du hast den Krieger-Pfad auf Level 100 abgeschlossen."
+
+bonus-drops:
+  - material: BONE
+    amount: 2
+    weight: 35
+  - material: ROTTEN_FLESH
+    amount: 4
+    weight: 35
+  - material: GUNPOWDER
+    amount: 2
+    weight: 30
+
+

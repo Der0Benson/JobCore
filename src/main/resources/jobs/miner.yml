@@ -1,3 +1,5 @@
+﻿config-version: 2
+
 display-name: "Miner"
 icon: "DIAMOND_PICKAXE"
 bossbar-color: "BLUE"
@@ -103,3 +105,4 @@ bonus-drops:
   - material: RAW_IRON
     amount: 1
     weight: 25
+

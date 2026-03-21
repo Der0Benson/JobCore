@@ -1,5 +1,6 @@
 package de.derbenson.jobcore;
 
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -16,16 +17,26 @@ import org.bukkit.util.StringUtil;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public final class JobCore extends JavaPlugin implements CommandExecutor, TabCompleter {
 
     private ConfigManager configManager;
+    private DebugManager debugManager;
     private PlayerDataStorage playerDataStorage;
     private PlayerDataManager playerDataManager;
     private BossBarManager bossBarManager;
     private JobManager jobManager;
+    private QuestManager questManager;
+    private QuestFeedbackManager questFeedbackManager;
+    private LeaderboardManager leaderboardManager;
     private PlacedBlockTracker placedBlockTracker;
     private LevelMenuManager levelMenuManager;
+    private QuestMenuManager questMenuManager;
+    private QuestNpcManager questNpcManager;
+    private ExportManager exportManager;
     private InactivityTask inactivityTask;
     private BukkitTask autosaveTask;
 
@@ -33,20 +44,28 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
     public void onEnable() {
         try {
             this.configManager = new ConfigManager(this);
+            this.debugManager = new DebugManager(configManager);
             this.playerDataStorage = createPlayerDataStorage();
             playerDataStorage.initialize();
-            this.playerDataManager = new PlayerDataManager(playerDataStorage);
+            this.playerDataManager = new PlayerDataManager(this, playerDataStorage);
             this.bossBarManager = new BossBarManager(this, configManager);
             this.jobManager = new JobManager(this, configManager, playerDataManager, bossBarManager);
+            this.questFeedbackManager = new QuestFeedbackManager(this, configManager);
+            this.questManager = new QuestManager(this, configManager, playerDataManager, jobManager, questFeedbackManager);
+            this.leaderboardManager = new LeaderboardManager(this, configManager, playerDataManager);
             this.placedBlockTracker = new PlacedBlockTracker(this);
-            this.levelMenuManager = new LevelMenuManager(configManager, jobManager);
+            this.levelMenuManager = new LevelMenuManager(configManager, jobManager, leaderboardManager);
+            this.questMenuManager = new QuestMenuManager(configManager, questManager);
+            this.questNpcManager = new QuestNpcManager(this, configManager, questMenuManager);
+            this.exportManager = new ExportManager(this, configManager, playerDataManager, questManager);
 
             registerCommands();
             registerListeners();
             startTasks();
             loadAlreadyOnlinePlayers();
+            leaderboardManager.warmUp();
 
-            getLogger().info("JobCore wurde erfolgreich aktiviert.");
+            logStartupBanner();
         } catch (final Exception exception) {
             getLogger().severe("JobCore konnte nicht aktiviert werden: " + exception.getMessage());
             exception.printStackTrace();
@@ -69,8 +88,11 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         }
 
         if (playerDataManager != null) {
-            playerDataManager.saveAll();
+            playerDataManager.saveAllSync();
             playerDataManager.close();
+        }
+        if (questNpcManager != null) {
+            questNpcManager.save();
         }
 
         getLogger().info("JobCore wurde deaktiviert.");
@@ -97,6 +119,27 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         if (args[0].equalsIgnoreCase("reload")) {
             return handleReloadCommand(sender);
         }
+        if (args[0].equalsIgnoreCase("stats")) {
+            return handleStatsCommand(sender, args);
+        }
+        if (args[0].equalsIgnoreCase("addxp")) {
+            return handleAddXpCommand(sender, args);
+        }
+        if (args[0].equalsIgnoreCase("setlevel")) {
+            return handleSetLevelCommand(sender, args);
+        }
+        if (args[0].equalsIgnoreCase("debugxp")) {
+            return handleDebugXpCommand(sender, args);
+        }
+        if (args[0].equalsIgnoreCase("spawnquestnpc")) {
+            return handleSpawnQuestNpcCommand(sender, args);
+        }
+        if (args[0].equalsIgnoreCase("removequestnpc")) {
+            return handleRemoveQuestNpcCommand(sender);
+        }
+        if (args[0].equalsIgnoreCase("export")) {
+            return handleExportCommand(sender);
+        }
 
         sender.sendMessage(configManager.getMessage("messages.unknown-subcommand"));
         return true;
@@ -113,33 +156,74 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             return List.of();
         }
 
-        if (args.length != 1) {
+        if (args.length == 1) {
+            final List<String> completions = new ArrayList<>();
+            final List<String> options = new ArrayList<>();
+
+            if (sender instanceof Player && hasConfigPermission(sender)) {
+                options.add("config");
+            }
+            if (hasAdminPermission(sender)) {
+                options.add("info");
+                options.add("reload");
+                options.add("stats");
+                options.add("addxp");
+                options.add("setlevel");
+                options.add("debugxp");
+                options.add("spawnquestnpc");
+                options.add("removequestnpc");
+                options.add("export");
+            }
+
+            StringUtil.copyPartialMatches(args[0], options, completions);
+            return completions;
+        }
+
+        if (!hasAdminPermission(sender)) {
             return List.of();
         }
 
-        final List<String> completions = new ArrayList<>();
-        final List<String> options = new ArrayList<>();
+        if (args.length == 2) {
+            if (args[0].equalsIgnoreCase("debugxp")) {
+                final List<String> completions = new ArrayList<>();
+                StringUtil.copyPartialMatches(args[1], List.of("on", "off"), completions);
+                return completions;
+            }
 
-        if (sender instanceof Player && sender.hasPermission("customjobs.config")) {
-            options.add("config");
-        }
-        if (sender.hasPermission("customjobs.admin")) {
-            options.add("info");
-            options.add("reload");
+            if (args[0].equalsIgnoreCase("stats")
+                    || args[0].equalsIgnoreCase("addxp")
+                    || args[0].equalsIgnoreCase("setlevel")) {
+                final List<String> completions = new ArrayList<>();
+                final List<String> names = playerDataManager.getKnownPlayerNames();
+                StringUtil.copyPartialMatches(args[1], names, completions);
+                return completions;
+            }
         }
 
-        StringUtil.copyPartialMatches(args[0], options, completions);
-        return completions;
+        if (args.length >= 2 && args[0].equalsIgnoreCase("spawnquestnpc")) {
+            return List.of();
+        }
+
+        if (args.length == 3 && (args[0].equalsIgnoreCase("addxp") || args[0].equalsIgnoreCase("setlevel"))) {
+            final List<String> completions = new ArrayList<>();
+            final List<String> jobIds = jobManager.getJobs().stream()
+                    .map(Job::getId)
+                    .toList();
+            StringUtil.copyPartialMatches(args[2], jobIds, completions);
+            return completions;
+        }
+
+        return List.of();
     }
 
     private boolean handleRootCommand(final CommandSender sender) {
         boolean sentMessage = false;
-        if (sender instanceof Player && sender.hasPermission("customjobs.config")) {
+        if (sender instanceof Player && hasConfigPermission(sender)) {
             sender.sendMessage(configManager.deserialize("<gray>Nutze <white>/jobcore config</white><gray>, um deine BossBar an- oder auszuschalten.</gray>"));
             sentMessage = true;
         }
-        if (sender.hasPermission("customjobs.admin")) {
-            sender.sendMessage(configManager.deserialize("<gray>Admin: <white>/jobcore info</white><gray>, <white>/jobcore reload</white></gray>"));
+        if (hasAdminPermission(sender)) {
+            sender.sendMessage(configManager.deserialize("<gray>Admin: <white>/jobcore info</white><gray>, <white>/jobcore reload</white><gray>, <white>/jobcore stats</white><gray>, <white>/jobcore addxp</white><gray>, <white>/jobcore setlevel</white><gray>, <white>/jobcore debugxp</white><gray>, <white>/jobcore spawnquestnpc</white><gray>, <white>/jobcore removequestnpc</white><gray>, <white>/jobcore export</white></gray>"));
             sentMessage = true;
         }
         if (!sentMessage) {
@@ -149,7 +233,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
     }
 
     private boolean handleInfoCommand(final CommandSender sender) {
-        if (!sender.hasPermission("customjobs.admin")) {
+        if (!hasAdminPermission(sender)) {
             sender.sendMessage(configManager.getMessage("messages.no-permission"));
             return true;
         }
@@ -187,13 +271,17 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             return true;
         }
 
-        if (!player.hasPermission("customjobs.config")) {
+        if (!hasConfigPermission(player)) {
             player.sendMessage(configManager.getMessage("messages.no-permission"));
             return true;
         }
 
         final boolean enabled = playerDataManager.toggleBossBar(player.getUniqueId());
-        playerDataManager.savePlayerData(player.getUniqueId());
+        playerDataManager.savePlayerData(player.getUniqueId()).exceptionally(throwable -> {
+            getLogger().severe("BossBar-Einstellung konnte nicht gespeichert werden: " + player.getUniqueId());
+            throwable.printStackTrace();
+            return null;
+        });
         if (!enabled) {
             bossBarManager.hide(player);
         }
@@ -212,7 +300,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             return true;
         }
 
-        if (!player.hasPermission("customjobs.level")) {
+        if (!hasLevelPermission(player)) {
             player.sendMessage(configManager.getMessage("messages.no-permission"));
             return true;
         }
@@ -222,7 +310,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
     }
 
     private boolean handleReloadCommand(final CommandSender sender) {
-        if (!sender.hasPermission("customjobs.admin")) {
+        if (!hasAdminPermission(sender)) {
             sender.sendMessage(configManager.getMessage("messages.no-permission"));
             return true;
         }
@@ -231,6 +319,8 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             final String previousStorageSignature = configManager.getStorageSignature();
             configManager.reload();
             jobManager.reload();
+            questManager.reload();
+            leaderboardManager.invalidate();
             sender.sendMessage(configManager.getMessage("messages.reloaded"));
             if (!previousStorageSignature.equals(configManager.getStorageSignature())) {
                 sender.sendMessage(configManager.getMessage("messages.storage-restart-required"));
@@ -240,6 +330,293 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             exception.printStackTrace();
             sender.sendMessage(configManager.deserialize("<red>Reload fehlgeschlagen. Details stehen in der Konsole.</red>"));
         }
+        return true;
+    }
+
+    private boolean handleStatsCommand(final CommandSender sender, final String[] args) {
+        if (!hasAdminPermission(sender)) {
+            sender.sendMessage(configManager.getMessage("messages.no-permission"));
+            return true;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(configManager.deserialize("<red>Nutze /jobcore stats <spieler>.</red>"));
+            return true;
+        }
+
+        final Player onlineTarget = resolveOnlinePlayer(args[1]);
+        if (onlineTarget != null) {
+            sendStats(sender, onlineTarget.getName(), playerDataManager.getOrCreateData(onlineTarget.getUniqueId()));
+            return true;
+        }
+
+        sender.sendMessage(configManager.deserialize("<gray>Lade gespeicherte Daten für <white>%player%</white>...</gray>", Map.of("player", args[1])));
+        playerDataManager.findPlayerAsync(args[1]).whenComplete((lookupResult, throwable) -> runSync(() -> {
+            if (throwable != null) {
+                sender.sendMessage(configManager.deserialize("<red>Spielerdaten konnten nicht geladen werden. Details stehen in der Konsole.</red>"));
+                getLogger().severe("Offline-Stats fehlgeschlagen: " + throwable.getMessage());
+                throwable.printStackTrace();
+                return;
+            }
+
+            if (lookupResult.isEmpty()) {
+                sender.sendMessage(configManager.deserialize("<red>Spieler <white>%player%</white> wurde in den gespeicherten Daten nicht gefunden.</red>", Map.of("player", args[1])));
+                return;
+            }
+
+            sendStats(sender, lookupResult.get().playerName(), lookupResult.get().data());
+        }));
+        return true;
+    }
+
+    private boolean handleAddXpCommand(final CommandSender sender, final String[] args) {
+        if (!hasAdminPermission(sender)) {
+            sender.sendMessage(configManager.getMessage("messages.no-permission"));
+            return true;
+        }
+
+        if (args.length < 4) {
+            sender.sendMessage(configManager.deserialize("<red>Nutze /jobcore addxp <spieler> <job> <menge>.</red>"));
+            return true;
+        }
+
+        final Optional<Job> job = Job.fromId(args[2]);
+        if (job.isEmpty()) {
+            sender.sendMessage(configManager.deserialize("<red>Unbekannter Job: <white>%job%</white>.</red>", Map.of("job", args[2])));
+            return true;
+        }
+
+        final Integer amount = parsePositiveInt(args[3]);
+        if (amount == null) {
+            sender.sendMessage(configManager.deserialize("<red>Die XP-Menge muss eine positive Zahl sein.</red>"));
+            return true;
+        }
+
+        final Player onlineTarget = resolveOnlinePlayer(args[1]);
+        if (onlineTarget != null) {
+            final int granted = jobManager.grantDirectExperience(onlineTarget, job.get(), amount);
+            playerDataManager.savePlayerData(onlineTarget.getUniqueId());
+            leaderboardManager.invalidate();
+            sender.sendMessage(configManager.deserialize(
+                    "<green>%player%</green><gray> erhielt <white>%xp%</white> direkte XP für <white>%job%</white>.</gray>",
+                    Map.of(
+                            "player", onlineTarget.getName(),
+                            "xp", String.valueOf(granted),
+                            "job", configManager.getJobDisplayName(job.get())
+                    )
+            ));
+            return true;
+        }
+
+        sender.sendMessage(configManager.deserialize("<gray>Lade gespeicherte Daten für <white>%player%</white>...</gray>", Map.of("player", args[1])));
+        playerDataManager.findPlayerAsync(args[1])
+                .thenCompose(lookupResult -> {
+                    if (lookupResult.isEmpty()) {
+                        return CompletableFuture.completedFuture(OfflineMutationResult.notFound(args[1]));
+                    }
+
+                    final PlayerDataManager.PlayerDataLookupResult resolved = lookupResult.get();
+                    final int granted = jobManager.grantDirectExperience(resolved.playerUuid(), resolved.data(), job.get(), amount);
+                    return playerDataManager.saveDetachedData(resolved.playerUuid(), resolved.data())
+                            .thenApply(ignored -> OfflineMutationResult.success(resolved.playerName(), granted, job.get()));
+                })
+                .whenComplete((result, throwable) -> runSync(() -> {
+                    if (throwable != null) {
+                        sender.sendMessage(configManager.deserialize("<red>Offline-XP konnten nicht gespeichert werden. Details stehen in der Konsole.</red>"));
+                        getLogger().severe("Offline-XP fehlgeschlagen: " + throwable.getMessage());
+                        throwable.printStackTrace();
+                        return;
+                    }
+
+                    if (!result.found()) {
+                        sender.sendMessage(configManager.deserialize("<red>Spieler <white>%player%</white> wurde in den gespeicherten Daten nicht gefunden.</red>", Map.of("player", result.input())));
+                        return;
+                    }
+
+                    leaderboardManager.invalidate();
+                    sender.sendMessage(configManager.deserialize(
+                            "<green>%player%</green><gray> erhielt <white>%xp%</white> direkte XP für <white>%job%</white>.</gray>",
+                            Map.of(
+                                    "player", result.playerName(),
+                                    "xp", String.valueOf(result.value()),
+                                    "job", configManager.getJobDisplayName(result.job())
+                            )
+                    ));
+                }));
+        return true;
+    }
+
+    private boolean handleSetLevelCommand(final CommandSender sender, final String[] args) {
+        if (!hasAdminPermission(sender)) {
+            sender.sendMessage(configManager.getMessage("messages.no-permission"));
+            return true;
+        }
+
+        if (args.length < 4) {
+            sender.sendMessage(configManager.deserialize("<red>Nutze /jobcore setlevel <spieler> <job> <level>.</red>"));
+            return true;
+        }
+
+        final Optional<Job> job = Job.fromId(args[2]);
+        if (job.isEmpty()) {
+            sender.sendMessage(configManager.deserialize("<red>Unbekannter Job: <white>%job%</white>.</red>", Map.of("job", args[2])));
+            return true;
+        }
+
+        final Integer level = parseNonNegativeInt(args[3]);
+        if (level == null) {
+            sender.sendMessage(configManager.deserialize("<red>Das Level muss eine Zahl von 0 bis %max% sein.</red>", Map.of("max", String.valueOf(jobManager.getMaxLevel()))));
+            return true;
+        }
+
+        final int targetLevel = Math.min(jobManager.getMaxLevel(), level);
+        final Player onlineTarget = resolveOnlinePlayer(args[1]);
+        if (onlineTarget != null) {
+            jobManager.setLevel(onlineTarget, job.get(), targetLevel);
+            playerDataManager.savePlayerData(onlineTarget.getUniqueId());
+            leaderboardManager.invalidate();
+            sender.sendMessage(configManager.deserialize(
+                    "<green>%player%</green><gray> wurde in <white>%job%</white> auf Level <white>%level%</white> gesetzt.</gray>",
+                    Map.of(
+                            "player", onlineTarget.getName(),
+                            "job", configManager.getJobDisplayName(job.get()),
+                            "level", String.valueOf(targetLevel)
+                    )
+            ));
+            return true;
+        }
+
+        sender.sendMessage(configManager.deserialize("<gray>Lade gespeicherte Daten für <white>%player%</white>...</gray>", Map.of("player", args[1])));
+        playerDataManager.findPlayerAsync(args[1])
+                .thenCompose(lookupResult -> {
+                    if (lookupResult.isEmpty()) {
+                        return CompletableFuture.completedFuture(OfflineMutationResult.notFound(args[1]));
+                    }
+
+                    final PlayerDataManager.PlayerDataLookupResult resolved = lookupResult.get();
+                    jobManager.setLevel(resolved.data(), job.get(), targetLevel);
+                    return playerDataManager.saveDetachedData(resolved.playerUuid(), resolved.data())
+                            .thenApply(ignored -> OfflineMutationResult.success(resolved.playerName(), targetLevel, job.get()));
+                })
+                .whenComplete((result, throwable) -> runSync(() -> {
+                    if (throwable != null) {
+                        sender.sendMessage(configManager.deserialize("<red>Offline-Level konnte nicht gespeichert werden. Details stehen in der Konsole.</red>"));
+                        getLogger().severe("Offline-Level fehlgeschlagen: " + throwable.getMessage());
+                        throwable.printStackTrace();
+                        return;
+                    }
+
+                    if (!result.found()) {
+                        sender.sendMessage(configManager.deserialize("<red>Spieler <white>%player%</white> wurde in den gespeicherten Daten nicht gefunden.</red>", Map.of("player", result.input())));
+                        return;
+                    }
+
+                    leaderboardManager.invalidate();
+                    sender.sendMessage(configManager.deserialize(
+                            "<green>%player%</green><gray> wurde in <white>%job%</white> auf Level <white>%level%</white> gesetzt.</gray>",
+                            Map.of(
+                                    "player", result.playerName(),
+                                    "job", configManager.getJobDisplayName(result.job()),
+                                    "level", String.valueOf(result.value())
+                            )
+                    ));
+                }));
+        return true;
+    }
+
+    private boolean handleDebugXpCommand(final CommandSender sender, final String[] args) {
+        if (!hasAdminPermission(sender)) {
+            sender.sendMessage(configManager.getMessage("messages.no-permission"));
+            return true;
+        }
+
+        if (args.length < 2 || (!args[1].equalsIgnoreCase("on") && !args[1].equalsIgnoreCase("off"))) {
+            sender.sendMessage(configManager.deserialize("<red>Nutze /jobcore debugxp <on|off>.</red>"));
+            return true;
+        }
+
+        final boolean enabled = debugManager.setDebugEnabled(sender, args[1].equalsIgnoreCase("on"));
+        sender.sendMessage(configManager.deserialize(
+                enabled
+                        ? "<green>XP-Debug wurde aktiviert.</green>"
+                        : "<yellow>XP-Debug wurde deaktiviert.</yellow>"
+        ));
+        return true;
+    }
+
+    private boolean handleSpawnQuestNpcCommand(final CommandSender sender, final String[] args) {
+        if (!hasAdminPermission(sender)) {
+            sender.sendMessage(configManager.getMessage("messages.no-permission"));
+            return true;
+        }
+
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(configManager.getMessage("messages.player-only"));
+            return true;
+        }
+
+        final String customName = args.length >= 2
+                ? String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length))
+                : "";
+        if (!questNpcManager.spawnQuestNpc(player, customName)) {
+            player.sendMessage(configManager.deserialize("<red>Quest-NPC konnte nicht gespawnt werden.</red>"));
+            return true;
+        }
+
+        player.sendMessage(configManager.deserialize("<green>Quest-NPC gespawnt.</green>"));
+        return true;
+    }
+
+    private boolean handleRemoveQuestNpcCommand(final CommandSender sender) {
+        if (!hasAdminPermission(sender)) {
+            sender.sendMessage(configManager.getMessage("messages.no-permission"));
+            return true;
+        }
+
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(configManager.getMessage("messages.player-only"));
+            return true;
+        }
+
+        if (!questNpcManager.removeNearestQuestNpc(player)) {
+            player.sendMessage(configManager.deserialize("<red>Kein Quest-NPC in deiner Nähe gefunden.</red>"));
+            return true;
+        }
+
+        player.sendMessage(configManager.deserialize("<yellow>Quest-NPC entfernt.</yellow>"));
+        return true;
+    }
+
+    private boolean handleExportCommand(final CommandSender sender) {
+        if (!hasAdminPermission(sender)) {
+            sender.sendMessage(configManager.getMessage("messages.no-permission"));
+            return true;
+        }
+
+        sender.sendMessage(configManager.deserialize("<gray>Export wird erstellt...</gray>"));
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return exportManager.exportSnapshot();
+            } catch (final Exception exception) {
+                throw new RuntimeException(exception);
+            }
+        }).whenComplete((result, throwable) -> runSync(() -> {
+            if (throwable != null) {
+                final Throwable cause = throwable.getCause() == null ? throwable : throwable.getCause();
+                getLogger().severe("Export fehlgeschlagen: " + cause.getMessage());
+                cause.printStackTrace();
+                sender.sendMessage(configManager.deserialize("<red>Export fehlgeschlagen. Details stehen in der Konsole.</red>"));
+                return;
+            }
+
+            sender.sendMessage(configManager.deserialize(
+                    "<green>Export erstellt.</green> <gray>%count% Spieler wurden nach <white>%path%</white><gray> geschrieben.</gray>",
+                    Map.of(
+                            "count", String.valueOf(result.playerCount()),
+                            "path", result.file().getAbsolutePath()
+                    )
+            ));
+        }));
         return true;
     }
 
@@ -262,10 +639,15 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         final PluginManager pluginManager = getServer().getPluginManager();
         pluginManager.registerEvents(playerDataManager, this);
         pluginManager.registerEvents(levelMenuManager, this);
+        pluginManager.registerEvents(questMenuManager, this);
+        pluginManager.registerEvents(questNpcManager, this);
         pluginManager.registerEvents(new PlacedBlockListener(jobManager, placedBlockTracker), this);
-        pluginManager.registerEvents(new NaturalLogListener(jobManager, configManager, placedBlockTracker), this);
-        pluginManager.registerEvents(new MinerListener(jobManager, placedBlockTracker), this);
-        pluginManager.registerEvents(new FarmerListener(jobManager, placedBlockTracker), this);
+        pluginManager.registerEvents(new NaturalLogListener(jobManager, configManager, placedBlockTracker, questManager), this);
+        pluginManager.registerEvents(new MinerListener(jobManager, placedBlockTracker, questManager), this);
+        pluginManager.registerEvents(new FarmerListener(jobManager, placedBlockTracker, questManager), this);
+        pluginManager.registerEvents(new WarriorListener(this, jobManager, configManager, debugManager, questManager), this);
+        pluginManager.registerEvents(new AnglerListener(jobManager, configManager, debugManager, questManager), this);
+        pluginManager.registerEvents(new AlchemistListener(jobManager, configManager, debugManager, questManager), this);
     }
 
     private void startTasks() {
@@ -275,7 +657,11 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         this.autosaveTask = new BukkitRunnable() {
             @Override
             public void run() {
-                playerDataManager.saveAll();
+                playerDataManager.saveAll().exceptionally(throwable -> {
+                    getLogger().severe("Autosave fehlgeschlagen: " + throwable.getMessage());
+                    throwable.printStackTrace();
+                    return null;
+                });
             }
         }.runTaskTimer(this, 20L * 300L, 20L * 300L);
     }
@@ -283,23 +669,133 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
     private void loadAlreadyOnlinePlayers() {
         for (final Player player : Bukkit.getOnlinePlayers()) {
             playerDataManager.loadPlayerData(player.getUniqueId());
+            playerDataManager.updateLastKnownName(player.getUniqueId(), player.getName());
         }
     }
 
     private PlayerDataStorage createPlayerDataStorage() {
         final String storageType = configManager.getStorageType();
         if (storageType.equals("mysql")) {
-            getLogger().info("Speicher-Backend: MySQL");
             return new MySqlPlayerDataStorage(this, Job.WOODCUTTER.getId(), configManager);
         }
 
         if (!storageType.equals("yaml")) {
             getLogger().warning("Unbekanntes Speicher-Backend '" + storageType + "'. Es wird YAML verwendet.");
-        } else {
-            getLogger().info("Speicher-Backend: YAML");
         }
 
         return new YamlPlayerDataStorage(this, Job.WOODCUTTER.getId());
     }
+
+    private void logStartupBanner() {
+        sendConsoleLine(" ");
+        sendConsoleLine("        §f██╗ §f██████╗ §f██████╗  §f██████╗ §f██████╗ §f██████╗ §f███████╗");
+        sendConsoleLine("        §f██║§f██╔═══██╗§f██╔══██╗§f██╔════╝§f██╔═══██╗§f██╔══██╗§f██╔════╝");
+        sendConsoleLine("        §f██║§f██║   ██║§f██████╔╝§f██║     §f██║   ██║§f██████╔╝§f█████╗");
+        sendConsoleLine("   §f██   ██║§f██║   ██║§f██╔══██╗§f██║     §f██║   ██║§f██╔══██╗§f██╔══╝");
+        sendConsoleLine("   §f╚█████╔╝§f╚██████╔╝§f██████╔╝§f╚██████╗§f╚██████╔╝§f██║  ██║§f███████╗");
+        sendConsoleLine("    §f╚════╝  §f╚═════╝ §f╚═════╝  §f╚═════╝ §f╚═════╝ §f╚═╝  ╚═╝§f╚══════╝");
+        sendConsoleLine(" ");
+        sendConsoleLine("   §aJobCore §fv" + getPluginMeta().getVersion() + " §7erfolgreich aktiviert!");
+        sendConsoleLine("   §7Speicher-Backend: §f" + getStorageBackendDisplayName());
+        sendConsoleLine(" ");
+    }
+
+    private String getStorageBackendDisplayName() {
+        return configManager.getStorageType().equalsIgnoreCase("mysql") ? "MySQL" : "YAML";
+    }
+
+    private void sendConsoleLine(final String line) {
+        Bukkit.getConsoleSender().sendMessage(LegacyComponentSerializer.legacySection().deserialize(line));
+    }
+
+    private Player resolveOnlinePlayer(final String input) {
+        if (input == null || input.isBlank()) {
+            return null;
+        }
+
+        final Player exactPlayer = Bukkit.getPlayerExact(input);
+        if (exactPlayer != null) {
+            return exactPlayer;
+        }
+
+        try {
+            return Bukkit.getPlayer(UUID.fromString(input.trim()));
+        } catch (final IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private void sendStats(final CommandSender sender, final String playerName, final PlayerJobData data) {
+        sender.sendMessage(configManager.deserialize("<gray>Job-Status von <white>%player%</white>:</gray>", Map.of("player", playerName)));
+        sender.sendMessage(configManager.deserialize("<gray>BossBar: <white>%state%</white>", Map.of(
+                "state", data.isBossBarEnabled() ? "aktiviert" : "deaktiviert"
+        )));
+
+        for (final Job job : jobManager.getJobs()) {
+            final JobProgress progress = jobManager.getProgress(data, job);
+            final long neededXp = jobManager.getXpForNextLevel(progress.getLevel());
+            final String xpText = jobManager.isMaxLevel(progress.getLevel()) ? "MAX" : String.valueOf(progress.getXp());
+            final String neededText = jobManager.isMaxLevel(progress.getLevel()) ? "MAX" : String.valueOf(neededXp);
+            sender.sendMessage(configManager.deserialize(
+                    "<gray>%job%: <white>Lv.%level%</white> <gray>- <white>%xp%/%needed%</white></gray>",
+                    Map.of(
+                            "job", configManager.getJobDisplayName(job),
+                            "level", String.valueOf(progress.getLevel()),
+                            "xp", xpText,
+                            "needed", neededText
+                    )
+            ));
+        }
+    }
+
+    private void runSync(final Runnable runnable) {
+        if (Bukkit.isPrimaryThread()) {
+            runnable.run();
+            return;
+        }
+        Bukkit.getScheduler().runTask(this, runnable);
+    }
+
+    private Integer parsePositiveInt(final String input) {
+        try {
+            final int value = Integer.parseInt(input);
+            return value > 0 ? value : null;
+        } catch (final NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private Integer parseNonNegativeInt(final String input) {
+        try {
+            final int value = Integer.parseInt(input);
+            return value >= 0 ? value : null;
+        } catch (final NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private boolean hasAdminPermission(final CommandSender sender) {
+        return sender.hasPermission("jobcore.admin") || sender.hasPermission("customjobs.admin");
+    }
+
+    private boolean hasConfigPermission(final CommandSender sender) {
+        return sender.hasPermission("jobcore.config") || sender.hasPermission("customjobs.config");
+    }
+
+    private boolean hasLevelPermission(final CommandSender sender) {
+        return sender.hasPermission("jobcore.level") || sender.hasPermission("customjobs.level");
+    }
+
+    private record OfflineMutationResult(boolean found, String input, String playerName, int value, Job job) {
+
+        private static OfflineMutationResult notFound(final String input) {
+            return new OfflineMutationResult(false, input, "", 0, null);
+        }
+
+        private static OfflineMutationResult success(final String playerName, final int value, final Job job) {
+            return new OfflineMutationResult(true, "", playerName, value, job);
+        }
+    }
 }
+
 

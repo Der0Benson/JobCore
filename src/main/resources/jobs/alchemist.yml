@@ -1,0 +1,86 @@
+﻿config-version: 2
+
+display-name: "Alchemist"
+icon: "BREWING_STAND"
+bossbar-color: "PURPLE"
+
+anti-farm:
+  interaction-seconds: 45
+  max-player-distance: 8.0
+  invalidate-on-hopper: true
+
+xp-values:
+  NETHER_WART: 8
+  REDSTONE: 7
+  GLOWSTONE_DUST: 8
+  GUNPOWDER: 8
+  DRAGON_BREATH: 16
+  FERMENTED_SPIDER_EYE: 10
+  SPIDER_EYE: 8
+  SUGAR: 8
+  MAGMA_CREAM: 10
+  GHAST_TEAR: 12
+  RABBIT_FOOT: 12
+  BLAZE_POWDER: 11
+  GLISTERING_MELON_SLICE: 10
+  GOLDEN_CARROT: 10
+  PUFFERFISH: 10
+  TURTLE_HELMET: 12
+  PHANTOM_MEMBRANE: 12
+  BREEZE_ROD: 14
+
+perks:
+  - level: 10
+    type: XP_BOOST
+    value: 0.02
+    display: "<light_purple>+2% Job-XP"
+  - level: 25
+    type: DOUBLE_DROP_CHANCE
+    value: 0.02
+    display: "<light_purple>2% Chance auf doppelte Tränke"
+  - level: 50
+    type: BONUS_DROP_CHANCE
+    value: 0.05
+    display: "<light_purple>5% Chance auf Bonus-Zutaten"
+
+path-rewards:
+  5:
+    - type: MESSAGE
+      display: "<aqua>Erste Mixtur"
+      value: "<light_purple>Du hast die ersten Rezepte des Alchemisten-Pfads gemeistert."
+  15:
+    - type: ITEM
+      material: NETHER_WART
+      amount: 8
+      display: "<light_purple>8 Netherwarzen"
+  30:
+    - type: ITEM
+      material: REDSTONE
+      amount: 8
+      display: "<light_purple>8 Redstone"
+  50:
+    - type: MESSAGE
+      display: "<gold>Meilenstein Level 50"
+      value: "<gold>Du hast Level 50 als Alchemist erreicht."
+  75:
+    - type: ITEM
+      material: DRAGON_BREATH
+      amount: 2
+      display: "<light_purple>2 Drachenatem"
+  100:
+    - type: MESSAGE
+      display: "<yellow>Trankmeister"
+      value: "<yellow>Du hast den Alchemisten-Pfad auf Level 100 abgeschlossen."
+
+bonus-drops:
+  - material: REDSTONE
+    amount: 4
+    weight: 35
+  - material: GLOWSTONE_DUST
+    amount: 3
+    weight: 35
+  - material: GUNPOWDER
+    amount: 2
+    weight: 30
+
+
