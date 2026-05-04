@@ -60,7 +60,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             this.placedBlockTracker = new PlacedBlockTracker(this);
             this.levelMenuManager = new LevelMenuManager(configManager, jobManager, leaderboardManager);
             this.questMenuManager = new QuestMenuManager(configManager, questManager);
-            this.questNpcManager = new QuestNpcManager(this, configManager, questMenuManager);
+            this.questNpcManager = createQuestNpcManager();
             this.exportManager = new ExportManager(this, configManager, playerDataManager, questManager);
             this.api = new JobCoreApiImpl(playerDataManager, jobManager, questManager);
 
@@ -594,6 +594,11 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         final String customName = args.length >= 2
                 ? String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length))
                 : "";
+        if (questNpcManager == null) {
+            player.sendMessage(configManager.deserialize("<red>Citizens ist nicht installiert oder nicht aktiv.</red>"));
+            return true;
+        }
+
         if (!questNpcManager.spawnQuestNpc(player, customName)) {
             player.sendMessage(configManager.deserialize("<red>Quest-NPC konnte nicht gespawnt werden.</red>"));
             return true;
@@ -611,6 +616,11 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
 
         if (!(sender instanceof Player player)) {
             sender.sendMessage(configManager.getMessage("messages.player-only"));
+            return true;
+        }
+
+        if (questNpcManager == null) {
+            player.sendMessage(configManager.deserialize("<red>Citizens ist nicht installiert oder nicht aktiv.</red>"));
             return true;
         }
 
@@ -680,7 +690,9 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         pluginManager.registerEvents(playerDataManager, this);
         pluginManager.registerEvents(levelMenuManager, this);
         pluginManager.registerEvents(questMenuManager, this);
-        pluginManager.registerEvents(questNpcManager, this);
+        if (questNpcManager != null) {
+            pluginManager.registerEvents(questNpcManager, this);
+        }
         pluginManager.registerEvents(new PlacedBlockListener(jobManager, placedBlockTracker), this);
         pluginManager.registerEvents(new NaturalLogListener(jobManager, configManager, placedBlockTracker, questManager), this);
         pluginManager.registerEvents(new MinerListener(jobManager, placedBlockTracker, questManager), this);
@@ -774,6 +786,14 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
                         getLogger().info("Quest-Cleanup (" + reason + "): " + totalChanged + " Spielerdaten bereinigt.");
                     }
                 });
+    }
+
+    private QuestNpcManager createQuestNpcManager() {
+        if (!Bukkit.getPluginManager().isPluginEnabled("Citizens")) {
+            getLogger().warning("Citizens ist nicht aktiv. Quest-NPC-Befehle bleiben deaktiviert.");
+            return null;
+        }
+        return new QuestNpcManager(this, configManager, questMenuManager);
     }
 
     private PlayerDataStorage createPlayerDataStorage() {

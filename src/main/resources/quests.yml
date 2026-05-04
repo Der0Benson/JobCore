@@ -1,7 +1,8 @@
-﻿config-version: 2
+config-version: 3
 
 npc:
   default-name: "<gold>Missionsmeister"
+  skin-name: ""
   menu-title: "Missionstafel"
   header-title: "<gold>Missionstafel</gold>"
   header-lore:
@@ -451,4 +452,3 @@ missions:
           - "PHANTOM"
           - "PILLAGER"
           - "VINDICATOR"
-

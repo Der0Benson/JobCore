@@ -3,7 +3,7 @@ version: '${version}'
 main: de.derbenson.jobcore.JobCore
 api-version: '1.21'
 author: derbenson
-softdepend: [PlaceholderAPI]
+softdepend: [PlaceholderAPI, Citizens]
 libraries:
   - com.mysql:mysql-connector-j:8.4.0
 commands:

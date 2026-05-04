@@ -1,22 +1,22 @@
 package de.derbenson.jobcore;
 
-import net.kyori.adventure.text.Component;
+import net.citizensnpcs.api.CitizensAPI;
+import net.citizensnpcs.api.event.NPCRightClickEvent;
+import net.citizensnpcs.api.npc.NPC;
+import net.citizensnpcs.api.npc.NPCRegistry;
+import net.citizensnpcs.trait.SkinTrait;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.player.PlayerInteractEntityEvent;
-import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -27,14 +27,14 @@ import java.util.UUID;
 
 public final class QuestNpcManager implements Listener {
 
+    private static final int UNKNOWN_NPC_ID = -1;
     private static final double REMOVE_RADIUS_BLOCKS = 16.0D;
 
     private final JavaPlugin plugin;
     private final ConfigManager configManager;
     private final QuestMenuManager questMenuManager;
-    private final NamespacedKey questNpcKey;
     private final File npcFile;
-    private final Map<UUID, QuestNpcEntry> entriesByEntityUuid = new HashMap<>();
+    private final Map<Integer, QuestNpcEntry> entriesByNpcId = new HashMap<>();
     private YamlConfiguration npcConfiguration;
 
     public QuestNpcManager(
@@ -45,14 +45,13 @@ public final class QuestNpcManager implements Listener {
         this.plugin = plugin;
         this.configManager = configManager;
         this.questMenuManager = questMenuManager;
-        this.questNpcKey = new NamespacedKey(plugin, "quest_npc");
         this.npcFile = new File(plugin.getDataFolder(), "quest-npcs.yml");
         load();
     }
 
     public void load() {
         npcConfiguration = YamlConfiguration.loadConfiguration(npcFile);
-        entriesByEntityUuid.clear();
+        entriesByNpcId.clear();
         boolean changed = false;
 
         final ConfigurationSection section = npcConfiguration.getConfigurationSection("npcs");
@@ -71,11 +70,13 @@ public final class QuestNpcManager implements Listener {
                 continue;
             }
 
-            spawnOrRestore(entry).ifPresent(restored -> {
-                entriesByEntityUuid.put(restored.entityUuid(), restored);
-                writeEntry(restored);
-                npcConfiguration.set("npcs." + entryId + ".entity-uuid", restored.entityUuid().toString());
-            });
+            final Optional<QuestNpcEntry> restored = spawnOrRestore(entry);
+            if (restored.isEmpty()) {
+                continue;
+            }
+
+            entriesByNpcId.put(restored.get().npcId(), restored.get());
+            writeEntry(restored.get());
             changed = true;
         }
 
@@ -86,9 +87,12 @@ public final class QuestNpcManager implements Listener {
 
     public void save() {
         try {
-            npcConfiguration.save(npcFile);
+            if (npcConfiguration != null) {
+                npcConfiguration.save(npcFile);
+            }
+            CitizensAPI.getNPCRegistry().saveToStore();
         } catch (final Exception exception) {
-            plugin.getLogger().severe("Quest-NPC-Datei konnte nicht gespeichert werden: " + exception.getMessage());
+            plugin.getLogger().severe("Quest NPC data could not be saved: " + exception.getMessage());
         }
     }
 
@@ -99,14 +103,16 @@ public final class QuestNpcManager implements Listener {
         final Location location = player.getLocation().getBlock().getLocation().add(0.5D, 0.0D, 0.5D);
         final QuestNpcEntry entry = new QuestNpcEntry(
                 UUID.randomUUID().toString(),
-                UUID.randomUUID(),
+                UNKNOWN_NPC_ID,
+                null,
                 location.getWorld().getName(),
                 location.getX(),
                 location.getY(),
                 location.getZ(),
                 location.getYaw(),
                 location.getPitch(),
-                name
+                name,
+                getConfiguredSkinName()
         );
 
         final Optional<QuestNpcEntry> spawned = spawnOrRestore(entry);
@@ -116,7 +122,7 @@ public final class QuestNpcManager implements Listener {
 
         writeEntry(spawned.get());
         save();
-        entriesByEntityUuid.put(spawned.get().entityUuid(), spawned.get());
+        entriesByNpcId.put(spawned.get().npcId(), spawned.get());
         return true;
     }
 
@@ -124,13 +130,14 @@ public final class QuestNpcManager implements Listener {
         QuestNpcEntry nearest = null;
         double nearestDistance = Double.MAX_VALUE;
 
-        for (final QuestNpcEntry entry : entriesByEntityUuid.values()) {
-            final Entity entity = Bukkit.getEntity(entry.entityUuid());
-            if (entity == null || !entity.isValid() || !entity.getWorld().equals(player.getWorld())) {
+        for (final QuestNpcEntry entry : entriesByNpcId.values()) {
+            final NPC npc = getNpc(entry);
+            final Location location = getNpcLocation(npc, entry);
+            if (location == null || !location.getWorld().equals(player.getWorld())) {
                 continue;
             }
 
-            final double distanceSquared = entity.getLocation().distanceSquared(player.getLocation());
+            final double distanceSquared = location.distanceSquared(player.getLocation());
             if (distanceSquared < nearestDistance) {
                 nearestDistance = distanceSquared;
                 nearest = entry;
@@ -141,121 +148,153 @@ public final class QuestNpcManager implements Listener {
             return false;
         }
 
-        final Entity entity = Bukkit.getEntity(nearest.entityUuid());
-        if (entity != null) {
-            entity.remove();
+        final NPC npc = getNpc(nearest);
+        if (npc != null) {
+            npc.destroy();
         }
 
-        entriesByEntityUuid.remove(nearest.entityUuid());
+        entriesByNpcId.remove(nearest.npcId());
         npcConfiguration.set("npcs." + nearest.entryId(), null);
         save();
         return true;
     }
 
     @EventHandler(ignoreCancelled = true)
-    public void onPlayerInteractEntity(final PlayerInteractEntityEvent event) {
-        final Entity entity = event.getRightClicked();
-        if (!isQuestNpc(entity)) {
+    public void onNpcRightClick(final NPCRightClickEvent event) {
+        if (!isQuestNpc(event.getNPC())) {
             return;
         }
 
         event.setCancelled(true);
-        questMenuManager.openMenu(event.getPlayer(), 0);
-    }
-
-    @EventHandler(ignoreCancelled = true)
-    public void onEntityDamage(final EntityDamageEvent event) {
-        if (isQuestNpc(event.getEntity())) {
-            event.setCancelled(true);
-        }
+        questMenuManager.openMenu(event.getClicker(), 0);
     }
 
     private Optional<QuestNpcEntry> spawnOrRestore(final QuestNpcEntry entry) {
         final World world = Bukkit.getWorld(entry.worldName());
         if (world == null) {
-            plugin.getLogger().warning("Quest-NPC-Welt nicht gefunden: " + entry.worldName());
+            plugin.getLogger().warning("Quest NPC world not found: " + entry.worldName());
             return Optional.empty();
         }
 
-        final Entity existing = Bukkit.getEntity(entry.entityUuid());
-        Villager villager;
-        UUID entityUuid = entry.entityUuid();
+        removeLegacyVillager(entry.legacyEntityUuid());
 
-        if (existing instanceof Villager existingVillager && existingVillager.isValid()) {
-            villager = existingVillager;
+        final Location location = new Location(world, entry.x(), entry.y(), entry.z(), entry.yaw(), entry.pitch());
+        final NPCRegistry registry = CitizensAPI.getNPCRegistry();
+        NPC npc = entry.npcId() == UNKNOWN_NPC_ID ? null : registry.getById(entry.npcId());
+        if (npc == null) {
+            npc = registry.createNPC(EntityType.PLAYER, toCitizensName(entry.displayName()));
         } else {
-            final Location location = new Location(world, entry.x(), entry.y(), entry.z(), entry.yaw(), entry.pitch());
-            villager = (Villager) world.spawnEntity(location, EntityType.VILLAGER);
-            entityUuid = villager.getUniqueId();
+            npc.setName(toCitizensName(entry.displayName()));
         }
 
-        configureVillager(villager, entry.displayName());
+        npc.setProtected(true);
+        npc.setUseMinecraftAI(false);
+        applySkin(npc, getEffectiveSkinName(entry));
+
+        if (npc.isSpawned()) {
+            npc.teleport(location, PlayerTeleportEvent.TeleportCause.PLUGIN);
+        } else if (!npc.spawn(location)) {
+            plugin.getLogger().warning("Quest NPC could not be spawned at " + entry.worldName()
+                    + " " + entry.x() + "/" + entry.y() + "/" + entry.z() + ".");
+            return Optional.empty();
+        }
+
         return Optional.of(new QuestNpcEntry(
                 entry.entryId(),
-                entityUuid,
+                npc.getId(),
+                null,
                 entry.worldName(),
-                villager.getLocation().getX(),
-                villager.getLocation().getY(),
-                villager.getLocation().getZ(),
-                villager.getLocation().getYaw(),
-                villager.getLocation().getPitch(),
-                entry.displayName()
+                location.getX(),
+                location.getY(),
+                location.getZ(),
+                location.getYaw(),
+                location.getPitch(),
+                entry.displayName(),
+                getEffectiveSkinName(entry)
         ));
     }
 
-    private void configureVillager(final Villager villager, final String displayName) {
-        villager.customName(configManager.deserialize(displayName));
-        villager.setCustomNameVisible(true);
-        villager.setProfession(Villager.Profession.LIBRARIAN);
-        villager.setVillagerType(Villager.Type.PLAINS);
-        villager.setVillagerLevel(5);
-        villager.setAI(false);
-        villager.setInvulnerable(true);
-        villager.setCollidable(false);
-        villager.setSilent(true);
-        villager.setGravity(false);
-        villager.setCanPickupItems(false);
-        villager.setRemoveWhenFarAway(false);
-        villager.setPersistent(true);
-        villager.getPersistentDataContainer().set(questNpcKey, PersistentDataType.BOOLEAN, true);
+    private void applySkin(final NPC npc, final String skinName) {
+        if (skinName.isBlank()) {
+            return;
+        }
+
+        final SkinTrait skinTrait = npc.getOrAddTrait(SkinTrait.class);
+        skinTrait.setFetchDefaultSkin(false);
+        skinTrait.setShouldUpdateSkins(true);
+        skinTrait.setSkinName(skinName, true);
     }
 
-    private boolean isQuestNpc(final Entity entity) {
-        return entity.getPersistentDataContainer().has(questNpcKey, PersistentDataType.BOOLEAN)
-                || entriesByEntityUuid.containsKey(entity.getUniqueId());
+    private boolean isQuestNpc(final NPC npc) {
+        return npc != null && entriesByNpcId.containsKey(npc.getId());
+    }
+
+    private NPC getNpc(final QuestNpcEntry entry) {
+        if (entry == null || entry.npcId() == UNKNOWN_NPC_ID) {
+            return null;
+        }
+        return CitizensAPI.getNPCRegistry().getById(entry.npcId());
+    }
+
+    private Location getNpcLocation(final NPC npc, final QuestNpcEntry entry) {
+        if (npc != null && npc.isSpawned() && npc.getEntity() != null) {
+            return npc.getEntity().getLocation();
+        }
+        if (npc != null && npc.getStoredLocation() != null) {
+            return npc.getStoredLocation();
+        }
+        final World world = Bukkit.getWorld(entry.worldName());
+        return world == null ? null : new Location(world, entry.x(), entry.y(), entry.z(), entry.yaw(), entry.pitch());
+    }
+
+    private void removeLegacyVillager(final UUID legacyEntityUuid) {
+        if (legacyEntityUuid == null) {
+            return;
+        }
+
+        final Entity entity = Bukkit.getEntity(legacyEntityUuid);
+        if (entity != null) {
+            entity.remove();
+        }
     }
 
     private QuestNpcEntry readEntry(final String entryId, final ConfigurationSection section) {
         final String worldName = section.getString("world", "");
-        final String displayName = section.getString("name", "<gold>Questmeister");
-        final String entityUuidRaw = section.getString("entity-uuid", "");
         if (worldName.isBlank()) {
             return null;
         }
 
-        UUID entityUuid;
-        try {
-            entityUuid = entityUuidRaw.isBlank() ? UUID.randomUUID() : UUID.fromString(entityUuidRaw);
-        } catch (final IllegalArgumentException exception) {
-            entityUuid = UUID.randomUUID();
-        }
-
         return new QuestNpcEntry(
                 entryId,
-                entityUuid,
+                section.getInt("npc-id", UNKNOWN_NPC_ID),
+                readLegacyEntityUuid(section.getString("entity-uuid", "")),
                 worldName,
                 section.getDouble("x"),
                 section.getDouble("y"),
                 section.getDouble("z"),
                 (float) section.getDouble("yaw", 0.0D),
                 (float) section.getDouble("pitch", 0.0D),
-                displayName
+                section.getString("name", "<gold>Questmeister"),
+                section.getString("skin-name", "")
         );
+    }
+
+    private UUID readLegacyEntityUuid(final String rawUuid) {
+        if (rawUuid == null || rawUuid.isBlank()) {
+            return null;
+        }
+
+        try {
+            return UUID.fromString(rawUuid);
+        } catch (final IllegalArgumentException exception) {
+            return null;
+        }
     }
 
     private void writeEntry(final QuestNpcEntry entry) {
         final String basePath = "npcs." + entry.entryId();
-        npcConfiguration.set(basePath + ".entity-uuid", entry.entityUuid().toString());
+        npcConfiguration.set(basePath + ".npc-id", entry.npcId());
+        npcConfiguration.set(basePath + ".entity-uuid", null);
         npcConfiguration.set(basePath + ".world", entry.worldName());
         npcConfiguration.set(basePath + ".x", entry.x());
         npcConfiguration.set(basePath + ".y", entry.y());
@@ -263,18 +302,34 @@ public final class QuestNpcManager implements Listener {
         npcConfiguration.set(basePath + ".yaw", entry.yaw());
         npcConfiguration.set(basePath + ".pitch", entry.pitch());
         npcConfiguration.set(basePath + ".name", entry.displayName());
+        npcConfiguration.set(basePath + ".skin-name", entry.skinName());
+    }
+
+    private String getConfiguredSkinName() {
+        return configManager.getQuestConfiguration().getString("npc.skin-name", "").trim();
+    }
+
+    private String getEffectiveSkinName(final QuestNpcEntry entry) {
+        return entry.skinName().isBlank() ? getConfiguredSkinName() : entry.skinName();
+    }
+
+    private String toCitizensName(final String displayName) {
+        final String plain = PlainTextComponentSerializer.plainText().serialize(configManager.deserialize(displayName));
+        return plain.isBlank() ? "Questmeister" : plain;
     }
 
     private record QuestNpcEntry(
             String entryId,
-            UUID entityUuid,
+            int npcId,
+            UUID legacyEntityUuid,
             String worldName,
             double x,
             double y,
             double z,
             float yaw,
             float pitch,
-            String displayName
+            String displayName,
+            String skinName
     ) {
     }
 }

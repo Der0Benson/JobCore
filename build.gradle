@@ -16,11 +16,22 @@ repositories {
         name = "placeholderapi-repo"
         url = "https://repo.extendedclip.com/releases/"
     }
+    maven {
+        name = "citizens-repo"
+        url = "https://maven.citizensnpcs.co/repo/"
+    }
+    maven {
+        name = "byteflux-repo"
+        url = "https://repo.byteflux.net/nexus/repository/public/"
+    }
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     compileOnly("me.clip:placeholderapi:2.11.7")
+    compileOnly("net.citizensnpcs:citizens-main:2.0.42-SNAPSHOT") {
+        transitive = false
+    }
 
     testImplementation(platform("org.junit:junit-bom:5.10.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
