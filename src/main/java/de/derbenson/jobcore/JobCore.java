@@ -42,6 +42,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
     private JobCoreApi api;
     private InactivityTask inactivityTask;
     private BukkitTask autosaveTask;
+    private BukkitTask questCleanupTask;
 
     @Override
     public void onEnable() {
@@ -69,6 +70,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             registerPlaceholderExpansion();
             startTasks();
             loadAlreadyOnlinePlayers();
+            cleanupExpiredQuestProgressAsync("Start");
             leaderboardManager.warmUp();
 
             logStartupBanner();
@@ -83,6 +85,10 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
     public void onDisable() {
         if (autosaveTask != null) {
             autosaveTask.cancel();
+        }
+
+        if (questCleanupTask != null) {
+            questCleanupTask.cancel();
         }
 
         if (inactivityTask != null) {
@@ -343,6 +349,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             configManager.reload();
             jobManager.reload();
             questManager.reload();
+            cleanupExpiredQuestProgressAsync("Reload");
             leaderboardManager.invalidate();
             sender.sendMessage(configManager.getMessage("messages.reloaded"));
             if (!previousStorageSignature.equals(configManager.getStorageSignature())) {
@@ -694,6 +701,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         this.autosaveTask = new BukkitRunnable() {
             @Override
             public void run() {
+                cleanupLoadedQuestProgress();
                 playerDataManager.saveAll().exceptionally(throwable -> {
                     getLogger().severe("Autosave fehlgeschlagen: " + throwable.getMessage());
                     throwable.printStackTrace();
@@ -701,6 +709,13 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
                 });
             }
         }.runTaskTimer(this, 20L * 300L, 20L * 300L);
+
+        this.questCleanupTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                cleanupExpiredQuestProgressAsync("Zeitplan");
+            }
+        }.runTaskTimer(this, 20L * 60L, 20L * 60L * 30L);
     }
 
     private void loadAlreadyOnlinePlayers() {
@@ -708,6 +723,51 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             playerDataManager.loadPlayerData(player.getUniqueId());
             playerDataManager.updateLastKnownName(player.getUniqueId(), player.getName());
         }
+    }
+
+    private int cleanupLoadedQuestProgress() {
+        return playerDataManager.cleanupLoadedData(questManager::cleanupExpiredQuestProgress);
+    }
+
+    private void cleanupExpiredQuestProgressAsync(final String reason) {
+        final int loadedChanged = cleanupLoadedQuestProgress();
+        final CompletableFuture<Void> loadedSave = loadedChanged > 0
+                ? playerDataManager.saveAll()
+                : CompletableFuture.completedFuture(null);
+
+        loadedSave
+                .thenCompose(ignored -> playerDataManager.getAllPlayerDataSnapshotAsync(true))
+                .thenCompose(snapshot -> {
+                    final List<CompletableFuture<Void>> saves = new ArrayList<>();
+                    int offlineChanged = 0;
+
+                    for (final Map.Entry<UUID, PlayerJobData> entry : snapshot.entrySet()) {
+                        if (playerDataManager.isLoaded(entry.getKey())) {
+                            continue;
+                        }
+
+                        final PlayerJobData data = entry.getValue();
+                        if (questManager.cleanupExpiredQuestProgress(data)) {
+                            offlineChanged++;
+                            saves.add(playerDataManager.saveDetachedData(entry.getKey(), data));
+                        }
+                    }
+
+                    final int changedCount = offlineChanged;
+                    return CompletableFuture.allOf(saves.toArray(new CompletableFuture[0]))
+                            .thenApply(ignored -> changedCount);
+                })
+                .whenComplete((offlineChanged, throwable) -> {
+                    if (throwable != null) {
+                        getLogger().warning("Quest-Cleanup fehlgeschlagen: " + throwable.getMessage());
+                        return;
+                    }
+
+                    final int totalChanged = loadedChanged + offlineChanged;
+                    if (totalChanged > 0) {
+                        getLogger().info("Quest-Cleanup (" + reason + "): " + totalChanged + " Spielerdaten bereinigt.");
+                    }
+                });
     }
 
     private PlayerDataStorage createPlayerDataStorage() {

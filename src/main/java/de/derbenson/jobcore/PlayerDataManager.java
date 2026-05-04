@@ -20,6 +20,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 public final class PlayerDataManager implements Listener {
 
@@ -167,6 +168,22 @@ public final class PlayerDataManager implements Listener {
         synchronized (playerData) {
             playerData.remove(playerUuid);
         }
+    }
+
+    public int cleanupLoadedData(final Predicate<PlayerJobData> cleanup) {
+        int changed = 0;
+        synchronized (playerData) {
+            for (final PlayerJobData data : playerData.values()) {
+                if (cleanup.test(data)) {
+                    changed++;
+                }
+            }
+        }
+
+        if (changed > 0) {
+            invalidateStoredSnapshotCache();
+        }
+        return changed;
     }
 
     public boolean isBossBarEnabled(final UUID playerUuid) {

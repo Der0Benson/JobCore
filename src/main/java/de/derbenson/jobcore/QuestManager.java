@@ -119,6 +119,26 @@ public final class QuestManager {
         return getCurrentProgress(data, quest.get(), true);
     }
 
+    public boolean cleanupExpiredQuestProgress(final PlayerJobData data) {
+        if (data == null || data.getQuestProgressById().isEmpty()) {
+            return false;
+        }
+
+        boolean changed = false;
+        for (final String questId : new ArrayList<>(data.getQuestProgressById().keySet())) {
+            final PlayerQuestProgress progress = data.getQuestProgress(questId);
+            final Quest quest = activeQuestsById.get(questId.toLowerCase(Locale.ROOT));
+            if (progress == null
+                    || quest == null
+                    || !currentCycleKey(quest.period()).equals(progress.getCycleKey())
+                    || isEmptyQuestProgress(progress)) {
+                data.removeQuestProgress(questId);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
     public int getActiveQuestCount(final UUID playerUuid) {
         final PlayerJobData data = playerDataManager.getOrCreateData(playerUuid);
         int count = 0;
@@ -197,7 +217,7 @@ public final class QuestManager {
         progress.setCompleted(false);
         progress.setClaimed(false);
         progress.setCycleKey(currentCycleKey(quest.get().period()));
-        playerDataManager.savePlayerData(player.getUniqueId());
+        saveQuestData(player, data);
 
         player.sendMessage(configManager.getMessage(
                 "messages.quest-accepted",
@@ -229,7 +249,7 @@ public final class QuestManager {
         progress.setAccepted(false);
         progress.setCompleted(false);
         progress.setClaimed(false);
-        playerDataManager.savePlayerData(player.getUniqueId());
+        saveQuestData(player, data);
 
         player.sendMessage(configManager.getMessage(
                 "messages.quest-abandoned",
@@ -279,7 +299,7 @@ public final class QuestManager {
         progress.setCompleted(true);
         progress.setClaimed(true);
         data.incrementTotalQuestClaims();
-        playerDataManager.savePlayerData(player.getUniqueId());
+        saveQuestData(player, data);
         questFeedbackManager.playClaimAnimation(player, quest.get(), grantedXp);
 
         player.sendMessage(configManager.getMessage(
@@ -387,8 +407,20 @@ public final class QuestManager {
         }
 
         if (changed || completedQuest) {
-            playerDataManager.savePlayerData(player.getUniqueId());
+            saveQuestData(player, data);
         }
+    }
+
+    private void saveQuestData(final Player player, final PlayerJobData data) {
+        cleanupExpiredQuestProgress(data);
+        playerDataManager.savePlayerData(player.getUniqueId());
+    }
+
+    private boolean isEmptyQuestProgress(final PlayerQuestProgress progress) {
+        return progress.getProgress() <= 0
+                && !progress.isAccepted()
+                && !progress.isCompleted()
+                && !progress.isClaimed();
     }
 
     private PlayerQuestProgress getCurrentProgress(
