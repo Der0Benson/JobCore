@@ -9,7 +9,7 @@ libraries:
 commands:
   jobcore:
     description: Hauptbefehl für JobCore.
-    usage: /jobcore [config|info|reload|stats|addxp|setlevel|debugxp|spawnquestnpc|removequestnpc|export|givebooster]
+    usage: /jobcore [config|info|reload|stats|addxp|setlevel|debugxp|spawnquestnpc|removequestnpc|export]
   level:
     description: Öffnet den Levelpfad.
     usage: /level
@@ -38,7 +38,6 @@ permissions:
       jobcore.command.spawnquestnpc: true
       jobcore.command.removequestnpc: true
       jobcore.command.export: true
-      jobcore.command.givebooster: true
   jobcore.config:
     description: Erlaubt das Umschalten der eigenen BossBar.
     default: false
@@ -96,9 +95,6 @@ permissions:
     default: false
   jobcore.command.export:
     description: Erlaubt /jobcore export.
-    default: false
-  jobcore.command.givebooster:
-    description: Erlaubt /jobcore givebooster.
     default: false
   customjobs.admin:
     description: Legacy-Permission für administrative JobCore-Befehle.

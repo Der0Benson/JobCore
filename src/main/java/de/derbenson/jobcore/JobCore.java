@@ -16,7 +16,6 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.StringUtil;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -148,9 +147,6 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         if (args[0].equalsIgnoreCase("export")) {
             return handleExportCommand(sender);
         }
-        if (args[0].equalsIgnoreCase("givebooster")) {
-            return handleGiveBoosterCommand(sender, args);
-        }
 
         sender.sendMessage(configManager.getMessage("messages.unknown-subcommand"));
         return true;
@@ -201,9 +197,6 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             if (hasCommandPermission(sender, "export")) {
                 options.add("export");
             }
-            if (hasCommandPermission(sender, "givebooster")) {
-                options.add("givebooster");
-            }
 
             StringUtil.copyPartialMatches(args[0], options, completions);
             return completions;
@@ -222,8 +215,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
 
             if (args[0].equalsIgnoreCase("stats")
                     || args[0].equalsIgnoreCase("addxp")
-                    || args[0].equalsIgnoreCase("setlevel")
-                    || args[0].equalsIgnoreCase("givebooster")) {
+                    || args[0].equalsIgnoreCase("setlevel")) {
                 final List<String> completions = new ArrayList<>();
                 final List<String> names = playerDataManager.getKnownPlayerNames();
                 StringUtil.copyPartialMatches(args[1], names, completions);
@@ -235,27 +227,12 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             return List.of();
         }
 
-        if (args.length == 3 && (args[0].equalsIgnoreCase("addxp") || args[0].equalsIgnoreCase("setlevel") || args[0].equalsIgnoreCase("givebooster"))) {
+        if (args.length == 3 && (args[0].equalsIgnoreCase("addxp") || args[0].equalsIgnoreCase("setlevel"))) {
             final List<String> completions = new ArrayList<>();
-            final List<String> jobIds = new ArrayList<>(jobManager.getJobs().stream()
+            final List<String> jobIds = jobManager.getJobs().stream()
                     .map(Job::getId)
-                    .toList());
-            if (args[0].equalsIgnoreCase("givebooster")) {
-                jobIds.add("all");
-            }
+                    .toList();
             StringUtil.copyPartialMatches(args[2], jobIds, completions);
-            return completions;
-        }
-
-        if (args.length == 4 && args[0].equalsIgnoreCase("givebooster")) {
-            final List<String> completions = new ArrayList<>();
-            StringUtil.copyPartialMatches(args[3], List.of("25", "50", "100"), completions);
-            return completions;
-        }
-
-        if (args.length == 5 && args[0].equalsIgnoreCase("givebooster")) {
-            final List<String> completions = new ArrayList<>();
-            StringUtil.copyPartialMatches(args[4], List.of("15m", "30m", "1h", "2h"), completions);
             return completions;
         }
 
@@ -269,7 +246,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             sentMessage = true;
         }
         if (hasAnyCommandPermission(sender)) {
-            sender.sendMessage(configManager.deserialize("<gray>Admin: <white>/jobcore info</white><gray>, <white>/jobcore reload</white><gray>, <white>/jobcore stats</white><gray>, <white>/jobcore addxp</white><gray>, <white>/jobcore setlevel</white><gray>, <white>/jobcore debugxp</white><gray>, <white>/jobcore spawnquestnpc</white><gray>, <white>/jobcore removequestnpc</white><gray>, <white>/jobcore export</white><gray>, <white>/jobcore givebooster</white></gray>"));
+            sender.sendMessage(configManager.deserialize("<gray>Admin: <white>/jobcore info</white><gray>, <white>/jobcore reload</white><gray>, <white>/jobcore stats</white><gray>, <white>/jobcore addxp</white><gray>, <white>/jobcore setlevel</white><gray>, <white>/jobcore debugxp</white><gray>, <white>/jobcore spawnquestnpc</white><gray>, <white>/jobcore removequestnpc</white><gray>, <white>/jobcore export</white></gray>"));
             sentMessage = true;
         }
         if (!sentMessage) {
@@ -666,75 +643,6 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         return true;
     }
 
-    private boolean handleGiveBoosterCommand(final CommandSender sender, final String[] args) {
-        if (!hasCommandPermission(sender, "givebooster")) {
-            sender.sendMessage(configManager.getMessage("messages.no-permission"));
-            return true;
-        }
-
-        if (args.length < 5) {
-            sender.sendMessage(configManager.deserialize("<red>Nutze /jobcore givebooster <spieler> <job|all> <bonusProzent> <dauer>.</red>"));
-            sender.sendMessage(configManager.deserialize("<gray>Beispiel: <white>/jobcore givebooster Steve miner 50 30m</white></gray>"));
-            return true;
-        }
-
-        final Optional<Job> job = args[2].equalsIgnoreCase("all") ? Optional.empty() : Job.fromId(args[2]);
-        if (!args[2].equalsIgnoreCase("all") && job.isEmpty()) {
-            sender.sendMessage(configManager.deserialize("<red>Unbekannter Job: <white>%job%</white>.</red>", Map.of("job", args[2])));
-            return true;
-        }
-
-        final Integer percent = parsePositiveInt(args[3]);
-        if (percent == null) {
-            sender.sendMessage(configManager.deserialize("<red>Der Bonus muss als positive Prozentzahl angegeben werden.</red>"));
-            return true;
-        }
-
-        final Duration duration = parseDuration(args[4]);
-        if (duration == null) {
-            sender.sendMessage(configManager.deserialize("<red>Die Dauer muss z.B. <white>30m</white>, <white>2h</white> oder <white>1d</white> sein.</red>"));
-            return true;
-        }
-
-        final double bonusMultiplier = percent / 100.0D;
-        final Player onlineTarget = resolveOnlinePlayer(args[1]);
-        if (onlineTarget != null) {
-            jobManager.giveXpBooster(onlineTarget.getUniqueId(), job.orElse(null), bonusMultiplier, duration);
-            playerDataManager.savePlayerData(onlineTarget.getUniqueId());
-            sender.sendMessage(formatBoosterMessage(onlineTarget.getName(), job.orElse(null), percent, duration));
-            return true;
-        }
-
-        sender.sendMessage(configManager.deserialize("<gray>Lade gespeicherte Daten fÃ¼r <white>%player%</white>...</gray>", Map.of("player", args[1])));
-        playerDataManager.findPlayerAsync(args[1])
-                .thenCompose(lookupResult -> {
-                    if (lookupResult.isEmpty()) {
-                        return CompletableFuture.completedFuture(BoosterMutationResult.notFound(args[1]));
-                    }
-
-                    final PlayerDataManager.PlayerDataLookupResult resolved = lookupResult.get();
-                    jobManager.giveXpBooster(resolved.data(), job.orElse(null), bonusMultiplier, duration);
-                    return playerDataManager.saveDetachedData(resolved.playerUuid(), resolved.data())
-                            .thenApply(ignored -> BoosterMutationResult.success(resolved.playerName(), job.orElse(null), percent, duration));
-                })
-                .whenComplete((result, throwable) -> runSync(() -> {
-                    if (throwable != null) {
-                        sender.sendMessage(configManager.deserialize("<red>Offline-Booster konnte nicht gespeichert werden. Details stehen in der Konsole.</red>"));
-                        getLogger().severe("Offline-Booster fehlgeschlagen: " + throwable.getMessage());
-                        throwable.printStackTrace();
-                        return;
-                    }
-
-                    if (!result.found()) {
-                        sender.sendMessage(configManager.deserialize("<red>Spieler <white>%player%</white> wurde in den gespeicherten Daten nicht gefunden.</red>", Map.of("player", result.input())));
-                        return;
-                    }
-
-                    sender.sendMessage(formatBoosterMessage(result.playerName(), result.job(), result.percent(), result.duration()));
-                }));
-        return true;
-    }
-
     private void registerCommands() {
         registerCommand("jobcore");
         registerCommand("level");
@@ -885,70 +793,6 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         Bukkit.getScheduler().runTask(this, runnable);
     }
 
-    private net.kyori.adventure.text.Component formatBoosterMessage(
-            final String playerName,
-            final Job job,
-            final int percent,
-            final Duration duration
-    ) {
-        return configManager.deserialize(
-                "<green>%player%</green><gray> erhielt <white>+%percent%%</white> XP-Booster fÃ¼r <white>%job%</white> (<white>%duration%</white>).</gray>",
-                Map.of(
-                        "player", playerName,
-                        "percent", String.valueOf(percent),
-                        "job", job == null ? "alle Jobs" : configManager.getJobDisplayName(job),
-                        "duration", formatDuration(duration)
-                )
-        );
-    }
-
-    private Duration parseDuration(final String input) {
-        if (input == null || input.isBlank()) {
-            return null;
-        }
-
-        final String trimmed = input.trim().toLowerCase(java.util.Locale.ROOT);
-        final char suffix = trimmed.charAt(trimmed.length() - 1);
-        final String numberPart = Character.isLetter(suffix) ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
-        final long value;
-        try {
-            value = Long.parseLong(numberPart);
-        } catch (final NumberFormatException exception) {
-            return null;
-        }
-
-        if (value <= 0L) {
-            return null;
-        }
-
-        return switch (suffix) {
-            case 's' -> Duration.ofSeconds(value);
-            case 'm' -> Duration.ofMinutes(value);
-            case 'h' -> Duration.ofHours(value);
-            case 'd' -> Duration.ofDays(value);
-            default -> Character.isLetter(suffix) ? null : Duration.ofMinutes(value);
-        };
-    }
-
-    private String formatDuration(final Duration duration) {
-        final long totalSeconds = Math.max(0L, duration.toSeconds());
-        final long days = totalSeconds / 86_400L;
-        final long hours = (totalSeconds % 86_400L) / 3_600L;
-        final long minutes = (totalSeconds % 3_600L) / 60L;
-        final long seconds = totalSeconds % 60L;
-
-        if (days > 0L) {
-            return days + "d " + hours + "h";
-        }
-        if (hours > 0L) {
-            return hours + "h " + minutes + "m";
-        }
-        if (minutes > 0L) {
-            return minutes + "m";
-        }
-        return seconds + "s";
-    }
-
     private Integer parsePositiveInt(final String input) {
         try {
             final int value = Integer.parseInt(input);
@@ -985,8 +829,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
                 || hasCommandPermission(sender, "debugxp")
                 || hasCommandPermission(sender, "spawnquestnpc")
                 || hasCommandPermission(sender, "removequestnpc")
-                || hasCommandPermission(sender, "export")
-                || hasCommandPermission(sender, "givebooster");
+                || hasCommandPermission(sender, "export");
     }
 
     private boolean canTabCompleteAdminCommand(final CommandSender sender, final String commandName) {
@@ -1019,26 +862,4 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         }
     }
 
-    private record BoosterMutationResult(
-            boolean found,
-            String input,
-            String playerName,
-            Job job,
-            int percent,
-            Duration duration
-    ) {
-
-        private static BoosterMutationResult notFound(final String input) {
-            return new BoosterMutationResult(false, input, "", null, 0, Duration.ZERO);
-        }
-
-        private static BoosterMutationResult success(
-                final String playerName,
-                final Job job,
-                final int percent,
-                final Duration duration
-        ) {
-            return new BoosterMutationResult(true, "", playerName, job, percent, duration);
-        }
-    }
 }

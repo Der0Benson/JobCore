@@ -5,7 +5,6 @@ import de.derbenson.jobcore.api.JobProgressSnapshot;
 import de.derbenson.jobcore.api.QuestProgressSnapshot;
 import org.bukkit.entity.Player;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -60,23 +59,6 @@ final class JobCoreApiImpl implements JobCoreApi {
     @Override
     public void setLevel(final Player player, final Job job, final int level) {
         jobManager.setLevel(player, job, level);
-        playerDataManager.savePlayerData(player.getUniqueId());
-    }
-
-    @Override
-    public void giveXpBooster(
-            final Player player,
-            final Job job,
-            final double bonusMultiplier,
-            final Duration duration
-    ) {
-        jobManager.giveXpBooster(player.getUniqueId(), job, bonusMultiplier, duration);
-        playerDataManager.savePlayerData(player.getUniqueId());
-    }
-
-    @Override
-    public void giveGlobalXpBooster(final Player player, final double bonusMultiplier, final Duration duration) {
-        jobManager.giveXpBooster(player.getUniqueId(), null, bonusMultiplier, duration);
         playerDataManager.savePlayerData(player.getUniqueId());
     }
 

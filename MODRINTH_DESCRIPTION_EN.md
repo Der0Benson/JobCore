@@ -52,7 +52,6 @@ Players can level multiple professions at the same time, unlock rewards, complet
   - Tree combo logic for natural woodcutting chains
 
 - **Job path rewards**
-  - XP boosters
   - Custom reward books
   - Level path milestones
   - Special unlocks like `Veinminer` and `Timber`
@@ -104,7 +103,6 @@ JobCore uses standard Bukkit permissions and can be managed directly through **L
 - `jobcore.command.spawnquestnpc`
 - `jobcore.command.removequestnpc`
 - `jobcore.command.export`
-- `jobcore.command.givebooster`
 
 **LuckPerms examples**
 
@@ -179,7 +177,7 @@ JobCore focuses on:
 - PlaceholderAPI is **optional**, but supported.
 - LuckPerms is **optional**, but fully supported through Bukkit permissions.
 - MySQL is **optional**. YAML works out of the box without an external database.
-- The default configuration already includes jobs, quests, menus, rewards, boosters, and quest NPC support.
+- The default configuration already includes jobs, quests, menus, rewards, and quest NPC support.
 
 ## Commands
 
@@ -188,4 +186,4 @@ JobCore focuses on:
 
 ## Short Modrinth Summary
 
-**JobCore** is a configurable jobs and quests plugin for Paper 1.21.x with 6 professions, rotating daily, weekly, and monthly quests, level paths, perks, BossBar progress, leaderboards, anti-farm systems, YAML/MySQL support, LuckPerms-compatible permissions, built-in PlaceholderAPI support, XP booster events, and custom unlocks like Veinminer and Timber.
+**JobCore** is a configurable jobs and quests plugin for Paper 1.21.x with 6 professions, rotating daily, weekly, and monthly quests, level paths, perks, BossBar progress, leaderboards, anti-farm systems, YAML/MySQL support, LuckPerms-compatible permissions, built-in PlaceholderAPI support, and custom unlocks like Veinminer and Timber.

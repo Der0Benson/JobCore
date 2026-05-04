@@ -27,7 +27,6 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
     private final String tableName;
     private final String settingsTableName;
     private final String questsTableName;
-    private final String boostersTableName;
 
     public MySqlPlayerDataStorage(final JavaPlugin plugin, final String legacyDefaultJobId, final ConfigManager configManager) {
         this.plugin = plugin;
@@ -42,7 +41,6 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
         this.tableName = normalizeTableName(configManager.getMySqlTablePrefix()) + "player_jobs";
         this.settingsTableName = normalizeTableName(configManager.getMySqlTablePrefix()) + "player_settings";
         this.questsTableName = normalizeTableName(configManager.getMySqlTablePrefix()) + "player_quests";
-        this.boostersTableName = normalizeTableName(configManager.getMySqlTablePrefix()) + "player_boosters";
     }
 
     @Override
@@ -80,15 +78,6 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
                             + "PRIMARY KEY (`uuid`, `quest_id`)"
                             + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
             );
-            statement.executeUpdate(
-                    "CREATE TABLE IF NOT EXISTS `" + boostersTableName + "` ("
-                            + "`uuid` CHAR(36) NOT NULL,"
-                            + "`booster_id` VARCHAR(64) NOT NULL,"
-                            + "`bonus_multiplier` DOUBLE NOT NULL DEFAULT 0,"
-                            + "`expires_at` BIGINT NOT NULL DEFAULT 0,"
-                            + "PRIMARY KEY (`uuid`, `booster_id`)"
-                            + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
-            );
             ensureColumnExists(connection, questsTableName, "accepted", "BOOLEAN NOT NULL DEFAULT FALSE");
             ensureColumnExists(connection, questsTableName, "claimed", "BOOLEAN NOT NULL DEFAULT FALSE");
             ensureColumnExists(connection, questsTableName, "cycle_key", "VARCHAR(64) NOT NULL DEFAULT ''");
@@ -110,10 +99,6 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
                 PreparedStatement questStatement = connection.prepareStatement(
                         "SELECT `quest_id`, `progress`, `accepted`, `completed`, `claimed`, `cycle_key` "
                                 + "FROM `" + questsTableName + "` WHERE `uuid` = ?"
-                );
-                PreparedStatement boosterStatement = connection.prepareStatement(
-                        "SELECT `booster_id`, `bonus_multiplier`, `expires_at` "
-                                + "FROM `" + boostersTableName + "` WHERE `uuid` = ?"
                 );
                 PreparedStatement statement = connection.prepareStatement(
                         "SELECT `job_id`, `xp`, `level`, `fractional_xp` FROM `" + tableName + "` WHERE `uuid` = ?"
@@ -146,16 +131,6 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
                 }
             }
 
-            boosterStatement.setString(1, playerUuid.toString());
-            try (ResultSet resultSet = boosterStatement.executeQuery()) {
-                while (resultSet.next()) {
-                    final String boosterId = normalizeJobId(resultSet.getString("booster_id"));
-                    final double bonusMultiplier = Math.max(0.0D, resultSet.getDouble("bonus_multiplier"));
-                    final long expiresAtMillis = Math.max(0L, resultSet.getLong("expires_at"));
-                    data.setXpBooster(boosterId, new XpBooster(bonusMultiplier, expiresAtMillis));
-                }
-            }
-
             statement.setString(1, playerUuid.toString());
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
@@ -184,9 +159,6 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
                 );
                 PreparedStatement questStatement = connection.prepareStatement(
                         "SELECT `uuid`, `quest_id`, `progress`, `accepted`, `completed`, `claimed`, `cycle_key` FROM `" + questsTableName + "`"
-                );
-                PreparedStatement boosterStatement = connection.prepareStatement(
-                        "SELECT `uuid`, `booster_id`, `bonus_multiplier`, `expires_at` FROM `" + boostersTableName + "`"
                 );
                 PreparedStatement jobStatement = connection.prepareStatement(
                         "SELECT `uuid`, `job_id`, `xp`, `level`, `fractional_xp` FROM `" + tableName + "`"
@@ -221,17 +193,6 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
                                     resultSet.getString("cycle_key")
                             )
                     );
-                }
-            }
-
-            try (ResultSet resultSet = boosterStatement.executeQuery()) {
-                while (resultSet.next()) {
-                    final UUID playerUuid = UUID.fromString(resultSet.getString("uuid"));
-                    final PlayerJobData data = entries.computeIfAbsent(playerUuid, ignored -> new PlayerJobData());
-                    final String boosterId = normalizeJobId(resultSet.getString("booster_id"));
-                    final double bonusMultiplier = Math.max(0.0D, resultSet.getDouble("bonus_multiplier"));
-                    final long expiresAtMillis = Math.max(0L, resultSet.getLong("expires_at"));
-                    data.setXpBooster(boosterId, new XpBooster(bonusMultiplier, expiresAtMillis));
                 }
             }
 
@@ -275,14 +236,6 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
                                     + "(`uuid`, `quest_id`, `progress`, `accepted`, `completed`, `claimed`, `cycle_key`) "
                                     + "VALUES (?, ?, ?, ?, ?, ?, ?)"
                     );
-                    PreparedStatement deleteBoosterStatement = connection.prepareStatement(
-                            "DELETE FROM `" + boostersTableName + "` WHERE `uuid` = ?"
-                    );
-                    PreparedStatement insertBoosterStatement = connection.prepareStatement(
-                            "INSERT INTO `" + boostersTableName + "` "
-                                    + "(`uuid`, `booster_id`, `bonus_multiplier`, `expires_at`) "
-                                    + "VALUES (?, ?, ?, ?)"
-                    );
                     PreparedStatement deleteStatement = connection.prepareStatement(
                             "DELETE FROM `" + tableName + "` WHERE `uuid` = ?"
                     );
@@ -311,18 +264,6 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
                     insertQuestStatement.addBatch();
                 }
 
-                deleteBoosterStatement.setString(1, playerUuid.toString());
-                deleteBoosterStatement.executeUpdate();
-
-                for (final Map.Entry<String, XpBooster> entry : data.getXpBoostersById().entrySet()) {
-                    final XpBooster booster = entry.getValue();
-                    insertBoosterStatement.setString(1, playerUuid.toString());
-                    insertBoosterStatement.setString(2, normalizeJobId(entry.getKey()));
-                    insertBoosterStatement.setDouble(3, Math.max(0.0D, booster.bonusMultiplier()));
-                    insertBoosterStatement.setLong(4, Math.max(0L, booster.expiresAtMillis()));
-                    insertBoosterStatement.addBatch();
-                }
-
                 deleteStatement.setString(1, playerUuid.toString());
                 deleteStatement.executeUpdate();
 
@@ -337,7 +278,6 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
                 }
 
                 insertQuestStatement.executeBatch();
-                insertBoosterStatement.executeBatch();
                 insertStatement.executeBatch();
                 connection.commit();
             } catch (final SQLException exception) {

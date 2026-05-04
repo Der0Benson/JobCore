@@ -100,13 +100,6 @@ public final class YamlPlayerDataStorage implements PlayerDataStorage {
             configuration.set(basePath + ".cycle-key", progress.getCycleKey());
         }
 
-        for (final Map.Entry<String, XpBooster> entry : data.getXpBoostersById().entrySet()) {
-            final XpBooster booster = entry.getValue();
-            final String basePath = "boosters." + normalizeJobId(entry.getKey());
-            configuration.set(basePath + ".bonus-multiplier", Math.max(0.0D, booster.bonusMultiplier()));
-            configuration.set(basePath + ".expires-at", Math.max(0L, booster.expiresAtMillis()));
-        }
-
         try {
             configuration.save(file);
         } catch (final IOException exception) {
@@ -129,7 +122,6 @@ public final class YamlPlayerDataStorage implements PlayerDataStorage {
         data.setTotalQuestClaims(Math.max(0, configuration.getInt("settings.quest-claims-total", 0)));
         final ConfigurationSection jobsSection = configuration.getConfigurationSection("jobs");
         final ConfigurationSection questsSection = configuration.getConfigurationSection("quests");
-        final ConfigurationSection boostersSection = configuration.getConfigurationSection("boosters");
 
         if (jobsSection != null) {
             for (final String jobId : jobsSection.getKeys(false)) {
@@ -169,19 +161,6 @@ public final class YamlPlayerDataStorage implements PlayerDataStorage {
             }
         }
 
-        if (boostersSection != null) {
-            for (final String boosterId : boostersSection.getKeys(false)) {
-                final ConfigurationSection boosterSection = boostersSection.getConfigurationSection(boosterId);
-                if (boosterSection == null) {
-                    continue;
-                }
-
-                final double bonusMultiplier = Math.max(0.0D, boosterSection.getDouble("bonus-multiplier", 0.0D));
-                final long expiresAtMillis = Math.max(0L, boosterSection.getLong("expires-at", 0L));
-                data.setXpBooster(normalizeJobId(boosterId), new XpBooster(bonusMultiplier, expiresAtMillis));
-            }
-        }
-
         return data;
     }
 
@@ -192,4 +171,3 @@ public final class YamlPlayerDataStorage implements PlayerDataStorage {
         return jobId.toLowerCase(Locale.ROOT);
     }
 }
-

@@ -25,7 +25,6 @@ JobCore nutzt normale Bukkit-Permissions. LuckPerms kann diese Nodes direkt verw
 - `jobcore.command.spawnquestnpc`
 - `jobcore.command.removequestnpc`
 - `jobcore.command.export`
-- `jobcore.command.givebooster`
 
 ## Legacy-Nodes
 
