@@ -100,8 +100,14 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         }
 
         if (playerDataManager != null) {
-            playerDataManager.saveAllSync();
-            playerDataManager.close();
+            try {
+                playerDataManager.saveAllSync();
+            } catch (final RuntimeException exception) {
+                getLogger().severe("Spielerdaten konnten beim Deaktivieren nicht vollstaendig gespeichert werden.");
+                exception.printStackTrace();
+            } finally {
+                playerDataManager.close();
+            }
         }
         if (questNpcManager != null) {
             questNpcManager.save();

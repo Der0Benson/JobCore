@@ -6,6 +6,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -26,8 +27,7 @@ public final class YamlPlayerDataStorage implements PlayerDataStorage {
     @Override
     public void initialize() {
         if (!playerDataFolder.exists() && !playerDataFolder.mkdirs()) {
-            plugin.getLogger().warning("Ordner für Spielerdaten konnte nicht erstellt werden: "
-                    + playerDataFolder.getAbsolutePath());
+            throw new IllegalStateException("Player data folder could not be created: " + playerDataFolder.getAbsolutePath());
         }
     }
 
@@ -42,7 +42,7 @@ public final class YamlPlayerDataStorage implements PlayerDataStorage {
             return loadFromConfiguration(YamlConfiguration.loadConfiguration(file));
         } catch (final Exception exception) {
             plugin.getLogger().severe("Fehler beim Laden der Daten für " + playerUuid + ": " + exception.getMessage());
-            return new PlayerJobData();
+            throw new IllegalStateException("Player data could not be loaded: " + playerUuid, exception);
         }
     }
 
@@ -104,6 +104,7 @@ public final class YamlPlayerDataStorage implements PlayerDataStorage {
             configuration.save(file);
         } catch (final IOException exception) {
             plugin.getLogger().severe("Fehler beim Speichern der Daten für " + playerUuid + ": " + exception.getMessage());
+            throw new UncheckedIOException("Player data could not be saved: " + playerUuid, exception);
         }
     }
 

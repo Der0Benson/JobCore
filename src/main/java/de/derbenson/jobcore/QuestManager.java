@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public final class QuestManager {
@@ -120,6 +121,14 @@ public final class QuestManager {
     }
 
     public boolean cleanupExpiredQuestProgress(final PlayerJobData data) {
+        return cleanupExpiredQuestProgress(data, activeQuestsById, this::currentCycleKey);
+    }
+
+    static boolean cleanupExpiredQuestProgress(
+            final PlayerJobData data,
+            final Map<String, Quest> activeQuestsById,
+            final Function<QuestPeriod, String> cycleKeyResolver
+    ) {
         if (data == null || data.getQuestProgressById().isEmpty()) {
             return false;
         }
@@ -130,7 +139,7 @@ public final class QuestManager {
             final Quest quest = activeQuestsById.get(questId.toLowerCase(Locale.ROOT));
             if (progress == null
                     || quest == null
-                    || !currentCycleKey(quest.period()).equals(progress.getCycleKey())
+                    || !cycleKeyResolver.apply(quest.period()).equals(progress.getCycleKey())
                     || isEmptyQuestProgress(progress)) {
                 data.removeQuestProgress(questId);
                 changed = true;
@@ -416,7 +425,7 @@ public final class QuestManager {
         playerDataManager.savePlayerData(player.getUniqueId());
     }
 
-    private boolean isEmptyQuestProgress(final PlayerQuestProgress progress) {
+    private static boolean isEmptyQuestProgress(final PlayerQuestProgress progress) {
         return progress.getProgress() <= 0
                 && !progress.isAccepted()
                 && !progress.isCompleted()

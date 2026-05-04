@@ -27,6 +27,8 @@ import java.util.UUID;
 
 public final class QuestNpcManager implements Listener {
 
+    private static final double REMOVE_RADIUS_BLOCKS = 16.0D;
+
     private final JavaPlugin plugin;
     private final ConfigManager configManager;
     private final QuestMenuManager questMenuManager;
@@ -135,7 +137,7 @@ public final class QuestNpcManager implements Listener {
             }
         }
 
-        if (nearest == null || nearestDistance > 16.0D) {
+        if (nearest == null || nearestDistance > (REMOVE_RADIUS_BLOCKS * REMOVE_RADIUS_BLOCKS)) {
             return false;
         }
 

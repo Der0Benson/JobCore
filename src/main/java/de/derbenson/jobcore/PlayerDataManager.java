@@ -113,19 +113,32 @@ public final class PlayerDataManager implements Listener {
             return CompletableFuture.completedFuture(null);
         }
 
-        return CompletableFuture.runAsync(() -> {
-            for (final Map.Entry<UUID, PlayerJobData> entry : snapshot.entrySet()) {
-                storage.save(entry.getKey(), entry.getValue());
-                updateStoredSnapshotCache(entry.getKey(), entry.getValue());
-            }
-        }, storageExecutor);
+        return CompletableFuture.runAsync(() -> saveSnapshot(snapshot), storageExecutor);
     }
 
     public void saveAllSync() {
         final Map<UUID, PlayerJobData> snapshot = getLoadedPlayerDataSnapshot();
+        saveSnapshot(snapshot);
+    }
+
+    private void saveSnapshot(final Map<UUID, PlayerJobData> snapshot) {
+        RuntimeException failure = null;
         for (final Map.Entry<UUID, PlayerJobData> entry : snapshot.entrySet()) {
-            storage.save(entry.getKey(), entry.getValue());
-            updateStoredSnapshotCache(entry.getKey(), entry.getValue());
+            try {
+                storage.save(entry.getKey(), entry.getValue());
+                updateStoredSnapshotCache(entry.getKey(), entry.getValue());
+            } catch (final RuntimeException exception) {
+                plugin.getLogger().severe("Spielerdaten konnten nicht gespeichert werden: " + entry.getKey());
+                exception.printStackTrace();
+                if (failure == null) {
+                    failure = new IllegalStateException("One or more player data saves failed.");
+                }
+                failure.addSuppressed(exception);
+            }
+        }
+
+        if (failure != null) {
+            throw failure;
         }
     }
 

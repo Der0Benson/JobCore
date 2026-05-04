@@ -143,6 +143,7 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
             }
         } catch (final SQLException exception) {
             plugin.getLogger().severe("Fehler beim Laden der MySQL-Daten für " + playerUuid + ": " + exception.getMessage());
+            throw new IllegalStateException("MySQL player data could not be loaded: " + playerUuid, exception);
         }
 
         return data;
@@ -209,6 +210,7 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
             }
         } catch (final Exception exception) {
             plugin.getLogger().severe("Fehler beim Laden aller MySQL-Daten: " + exception.getMessage());
+            throw new IllegalStateException("MySQL player data snapshot could not be loaded.", exception);
         }
 
         return entries;
@@ -288,6 +290,7 @@ public final class MySqlPlayerDataStorage implements PlayerDataStorage {
             }
         } catch (final SQLException exception) {
             plugin.getLogger().severe("Fehler beim Speichern der MySQL-Daten für " + playerUuid + ": " + exception.getMessage());
+            throw new IllegalStateException("MySQL player data could not be saved: " + playerUuid, exception);
         }
     }
 
