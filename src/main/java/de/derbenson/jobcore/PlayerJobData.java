@@ -8,6 +8,7 @@ public final class PlayerJobData {
 
     private final Map<String, JobProgress> progressByJob = new HashMap<>();
     private final Map<String, PlayerQuestProgress> questProgressById = new HashMap<>();
+    private final Map<String, XpBooster> xpBoostersById = new HashMap<>();
     private String lastKnownName = "";
     private boolean bossBarEnabled = true;
     private int totalQuestClaims;
@@ -34,6 +35,26 @@ public final class PlayerJobData {
 
     public void removeQuestProgress(final String questId) {
         questProgressById.remove(questId);
+    }
+
+    public XpBooster getXpBooster(final String boosterId) {
+        pruneExpiredXpBoosters();
+        return xpBoostersById.get(normalizeBoosterId(boosterId));
+    }
+
+    public void setXpBooster(final String boosterId, final XpBooster booster) {
+        final String normalizedBoosterId = normalizeBoosterId(boosterId);
+        if (booster == null || booster.isExpired(System.currentTimeMillis())) {
+            xpBoostersById.remove(normalizedBoosterId);
+            return;
+        }
+
+        xpBoostersById.put(normalizedBoosterId, booster);
+    }
+
+    public void pruneExpiredXpBoosters() {
+        final long nowMillis = System.currentTimeMillis();
+        xpBoostersById.entrySet().removeIf(entry -> entry.getValue().isExpired(nowMillis));
     }
 
     public boolean isBossBarEnabled() {
@@ -72,6 +93,11 @@ public final class PlayerJobData {
         return Collections.unmodifiableMap(questProgressById);
     }
 
+    public Map<String, XpBooster> getXpBoostersById() {
+        pruneExpiredXpBoosters();
+        return Collections.unmodifiableMap(xpBoostersById);
+    }
+
     public PlayerJobData copy() {
         final PlayerJobData copy = new PlayerJobData();
         copy.setLastKnownName(lastKnownName);
@@ -83,7 +109,16 @@ public final class PlayerJobData {
         for (final Map.Entry<String, PlayerQuestProgress> entry : questProgressById.entrySet()) {
             copy.setQuestProgress(entry.getKey(), entry.getValue().copy());
         }
+        for (final Map.Entry<String, XpBooster> entry : getXpBoostersById().entrySet()) {
+            copy.setXpBooster(entry.getKey(), entry.getValue());
+        }
         return copy;
     }
-}
 
+    private String normalizeBoosterId(final String boosterId) {
+        if (boosterId == null || boosterId.isBlank()) {
+            return "global";
+        }
+        return boosterId.toLowerCase(java.util.Locale.ROOT);
+    }
+}

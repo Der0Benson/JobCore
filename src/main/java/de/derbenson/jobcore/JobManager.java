@@ -1,5 +1,7 @@
 package de.derbenson.jobcore;
 
+import de.derbenson.jobcore.api.event.JobCoreExperienceGainEvent;
+import de.derbenson.jobcore.api.event.JobCoreLevelUpEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
@@ -9,6 +11,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -161,6 +164,48 @@ public final class JobManager {
 
     public int grantDirectExperience(final UUID playerUuid, final PlayerJobData data, final Job job, final int amount) {
         return applyExperience(data, playerUuid, null, job, amount, false, false);
+    }
+
+    public void giveXpBooster(
+            final UUID playerUuid,
+            final Job job,
+            final double bonusMultiplier,
+            final Duration duration
+    ) {
+        if (playerUuid == null || bonusMultiplier <= 0.0D || duration == null || duration.isZero() || duration.isNegative()) {
+            return;
+        }
+
+        giveXpBooster(playerDataManager.getOrCreateData(playerUuid), job, bonusMultiplier, duration);
+    }
+
+    public void giveXpBooster(
+            final PlayerJobData data,
+            final Job job,
+            final double bonusMultiplier,
+            final Duration duration
+    ) {
+        if (data == null || bonusMultiplier <= 0.0D || duration == null || duration.isZero() || duration.isNegative()) {
+            return;
+        }
+
+        final String boosterId = job == null ? "global" : job.getId();
+        final long nowMillis = System.currentTimeMillis();
+        final long expiresAtMillis = nowMillis + Math.max(1L, duration.toMillis());
+        final XpBooster existing = data.getXpBooster(boosterId);
+        if (existing == null || existing.isExpired(nowMillis)) {
+            data.setXpBooster(boosterId, new XpBooster(bonusMultiplier, expiresAtMillis));
+            return;
+        }
+
+        data.setXpBooster(boosterId, new XpBooster(
+                Math.max(existing.bonusMultiplier(), bonusMultiplier),
+                Math.max(existing.expiresAtMillis(), expiresAtMillis)
+        ));
+    }
+
+    public double getActiveXpBoosterValue(final UUID playerUuid, final Job job) {
+        return getActiveXpBoosterValue(playerDataManager.getOrCreateData(playerUuid), job);
     }
 
     public void setLevel(final Player player, final Job job, final int level) {
@@ -562,14 +607,27 @@ public final class JobManager {
             return 0;
         }
 
+        int effectiveAmount = amount;
+        if (player != null) {
+            final JobCoreExperienceGainEvent event = new JobCoreExperienceGainEvent(player, job, amount, !applyXpBoost);
+            Bukkit.getPluginManager().callEvent(event);
+            if (event.isCancelled() || event.getAmount() <= 0) {
+                return 0;
+            }
+            effectiveAmount = event.getAmount();
+        }
+
         final JobProgress progress = getProgress(data, job);
         if (isMaxLevel(progress.getLevel())) {
             clampProgress(progress);
             return 0;
         }
 
-        final double xpBoost = applyXpBoost ? getUnlockedPerkValue(job, progress.getLevel(), PerkType.XP_BOOST) : 0.0D;
-        final double adjusted = (amount * (1.0D + xpBoost)) + progress.getFractionalXp();
+        final int previousLevel = progress.getLevel();
+        final double xpBoost = applyXpBoost
+                ? getUnlockedPerkValue(job, progress.getLevel(), PerkType.XP_BOOST) + getActiveXpBoosterValue(data, job)
+                : 0.0D;
+        final double adjusted = (effectiveAmount * (1.0D + xpBoost)) + progress.getFractionalXp();
         final int granted = Math.max(0, (int) Math.floor(adjusted));
         progress.setFractionalXp(Math.max(0.0D, adjusted - granted));
 
@@ -605,6 +663,7 @@ public final class JobManager {
 
         if (leveledUp && player != null) {
             for (final int level : reachedLevels) {
+                Bukkit.getPluginManager().callEvent(new JobCoreLevelUpEvent(player, job, Math.max(previousLevel, level - 1), level));
                 grantLevelRewards(player, job, level);
             }
             bossBarManager.handleLevelUp(player, job);
@@ -613,5 +672,21 @@ public final class JobManager {
 
         return granted;
     }
-}
 
+    private double getActiveXpBoosterValue(final PlayerJobData data, final Job job) {
+        data.pruneExpiredXpBoosters();
+        double bonus = 0.0D;
+
+        final XpBooster globalBooster = data.getXpBooster("global");
+        if (globalBooster != null) {
+            bonus += globalBooster.bonusMultiplier();
+        }
+
+        final XpBooster jobBooster = data.getXpBooster(job.getId());
+        if (jobBooster != null) {
+            bonus += jobBooster.bonusMultiplier();
+        }
+
+        return bonus;
+    }
+}

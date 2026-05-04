@@ -1,5 +1,11 @@
 package de.derbenson.jobcore;
 
+import de.derbenson.jobcore.api.event.JobCoreQuestAbandonEvent;
+import de.derbenson.jobcore.api.event.JobCoreQuestAcceptEvent;
+import de.derbenson.jobcore.api.event.JobCoreQuestClaimEvent;
+import de.derbenson.jobcore.api.event.JobCoreQuestCompleteEvent;
+import de.derbenson.jobcore.api.event.JobCoreQuestProgressEvent;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -180,6 +186,12 @@ public final class QuestManager {
             return false;
         }
 
+        final JobCoreQuestAcceptEvent event = new JobCoreQuestAcceptEvent(player, quest.get());
+        Bukkit.getPluginManager().callEvent(event);
+        if (event.isCancelled()) {
+            return false;
+        }
+
         progress.setProgress(0);
         progress.setAccepted(true);
         progress.setCompleted(false);
@@ -204,6 +216,12 @@ public final class QuestManager {
         final PlayerJobData data = playerDataManager.getOrCreateData(player.getUniqueId());
         final PlayerQuestProgress progress = getCurrentProgress(data, quest.get(), true);
         if (!progress.isAccepted() || progress.isCompleted() || progress.isClaimed()) {
+            return false;
+        }
+
+        final JobCoreQuestAbandonEvent event = new JobCoreQuestAbandonEvent(player, quest.get());
+        Bukkit.getPluginManager().callEvent(event);
+        if (event.isCancelled()) {
             return false;
         }
 
@@ -248,7 +266,13 @@ public final class QuestManager {
             return false;
         }
 
-        final int rewardXp = Math.max(0, quest.get().rewardXp());
+        final JobCoreQuestClaimEvent event = new JobCoreQuestClaimEvent(player, quest.get(), Math.max(0, quest.get().rewardXp()));
+        Bukkit.getPluginManager().callEvent(event);
+        if (event.isCancelled()) {
+            return false;
+        }
+
+        final int rewardXp = Math.max(0, event.getRewardXp());
         final int grantedXp = rewardXp > 0 ? jobManager.grantDirectExperience(player, quest.get().job(), rewardXp) : 0;
 
         progress.setAccepted(false);
@@ -332,13 +356,27 @@ public final class QuestManager {
             }
 
             final int updated = Math.min(quest.requiredAmount(), previous + amount);
-            progress.setProgress(updated);
+            final JobCoreQuestProgressEvent event = new JobCoreQuestProgressEvent(
+                    player,
+                    quest,
+                    normalizedTarget,
+                    previous,
+                    updated
+            );
+            Bukkit.getPluginManager().callEvent(event);
+            if (event.isCancelled()) {
+                continue;
+            }
+
+            final int eventProgress = Math.min(quest.requiredAmount(), Math.max(previous, event.getNewProgress()));
+            progress.setProgress(eventProgress);
             changed = true;
 
-            if (updated >= quest.requiredAmount()) {
+            if (eventProgress >= quest.requiredAmount()) {
                 progress.setAccepted(false);
                 progress.setCompleted(true);
                 completedQuest = true;
+                Bukkit.getPluginManager().callEvent(new JobCoreQuestCompleteEvent(player, quest));
                 questFeedbackManager.handleQuestCompleted(player, quest);
                 player.sendMessage(configManager.getMessage(
                         "messages.quest-completed",
@@ -466,4 +504,3 @@ public final class QuestManager {
                 .replace(' ', '_');
     }
 }
-

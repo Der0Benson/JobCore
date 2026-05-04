@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'de.derbenson'
-version = '1.0.26'
+version = '1.1.6'
 
 repositories {
     mavenCentral()
@@ -16,11 +16,20 @@ repositories {
         name = "placeholderapi-repo"
         url = "https://repo.extendedclip.com/releases/"
     }
+        maven {
+            name = "citizens-repo"
+            url = "https://maven.citizensnpcs.co/repo/"
+        }
+        maven {
+            name = "byteflux-repo"
+            url = "https://repo.byteflux.net/nexus/repository/public/"
+        }
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     compileOnly("me.clip:placeholderapi:2.11.7")
+    compileOnly files("build/libs/Citizens.jar")
 }
 
 tasks {

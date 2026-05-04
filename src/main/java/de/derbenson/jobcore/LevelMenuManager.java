@@ -91,6 +91,11 @@ public final class LevelMenuManager implements Listener {
     }
 
     public void openLeaderboard(final Player player) {
+        if (!hasLeaderboardPermission(player)) {
+            player.sendMessage(configManager.getMessage("messages.no-permission"));
+            return;
+        }
+
         final LevelMenuHolder holder = new LevelMenuHolder(LevelMenuView.LEADERBOARD, null, 0);
         final Inventory inventory = Bukkit.createInventory(holder, SIZE, menuString("leaderboard-title", "Bestenlisten"));
         holder.setInventory(inventory);
@@ -163,6 +168,10 @@ public final class LevelMenuManager implements Listener {
 
     private void handleOverviewClick(final Player player, final int slot) {
         if (slot == OVERVIEW_LEADERBOARD_SLOT) {
+            if (!hasLeaderboardPermission(player)) {
+                player.sendMessage(configManager.getMessage("messages.no-permission"));
+                return;
+            }
             openLeaderboard(player);
             return;
         }
@@ -198,6 +207,10 @@ public final class LevelMenuManager implements Listener {
             return;
         }
         if (slot == PATH_LEADERBOARD_SLOT) {
+            if (!hasLeaderboardPermission(player)) {
+                player.sendMessage(configManager.getMessage("messages.no-permission"));
+                return;
+            }
             openLeaderboard(player);
             return;
         }
@@ -803,6 +816,10 @@ public final class LevelMenuManager implements Listener {
 
     private Component withoutItalic(final Component component) {
         return component.decoration(TextDecoration.ITALIC, false);
+    }
+
+    private boolean hasLeaderboardPermission(final Player player) {
+        return player.hasPermission("jobcore.menu.leaderboard") || player.hasPermission("jobcore.admin");
     }
 
     private record DummyJobCard(String displayName, Material icon, String description, String clickMessage) {

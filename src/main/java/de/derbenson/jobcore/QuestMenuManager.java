@@ -50,6 +50,11 @@ public final class QuestMenuManager implements Listener {
     }
 
     public void openMenu(final Player player, final int ignoredPage) {
+        if (!hasQuestMenuPermission(player)) {
+            player.sendMessage(configManager.getMessage("messages.no-permission"));
+            return;
+        }
+
         final QuestMenuHolder holder = new QuestMenuHolder(0);
         final Inventory inventory = Bukkit.createInventory(
                 holder,
@@ -108,6 +113,10 @@ public final class QuestMenuManager implements Listener {
         }
 
         if (progress.isCompleted()) {
+            if (!hasQuestClaimPermission(player)) {
+                player.sendMessage(configManager.getMessage("messages.no-permission"));
+                return;
+            }
             questManager.claimQuest(player, quest.id());
             openMenu(player, 0);
             return;
@@ -115,6 +124,10 @@ public final class QuestMenuManager implements Listener {
 
         if (progress.isAccepted()) {
             if (event.getClick() == ClickType.RIGHT) {
+                if (!hasQuestAbandonPermission(player)) {
+                    player.sendMessage(configManager.getMessage("messages.no-permission"));
+                    return;
+                }
                 questManager.abandonQuest(player, quest.id());
             } else {
                 player.sendMessage(configManager.getMessage(
@@ -127,6 +140,10 @@ public final class QuestMenuManager implements Listener {
             return;
         }
 
+        if (!hasQuestAcceptPermission(player)) {
+            player.sendMessage(configManager.getMessage("messages.no-permission"));
+            return;
+        }
         questManager.acceptQuest(player, quest.id());
         openMenu(player, 0);
     }
@@ -408,6 +425,22 @@ public final class QuestMenuManager implements Listener {
 
     private Component withoutItalic(final Component component) {
         return component.decoration(TextDecoration.ITALIC, false);
+    }
+
+    private boolean hasQuestMenuPermission(final Player player) {
+        return player.hasPermission("jobcore.quest.menu") || player.hasPermission("jobcore.admin");
+    }
+
+    private boolean hasQuestAcceptPermission(final Player player) {
+        return player.hasPermission("jobcore.quest.accept") || player.hasPermission("jobcore.admin");
+    }
+
+    private boolean hasQuestAbandonPermission(final Player player) {
+        return player.hasPermission("jobcore.quest.abandon") || player.hasPermission("jobcore.admin");
+    }
+
+    private boolean hasQuestClaimPermission(final Player player) {
+        return player.hasPermission("jobcore.quest.claim") || player.hasPermission("jobcore.admin");
     }
 
     private enum QuestCardState {

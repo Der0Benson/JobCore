@@ -9,20 +9,97 @@ libraries:
 commands:
   jobcore:
     description: Hauptbefehl für JobCore.
-    usage: /jobcore [config|info|reload|stats|addxp|setlevel|debugxp|spawnquestnpc|removequestnpc|export]
+    usage: /jobcore [config|info|reload|stats|addxp|setlevel|debugxp|spawnquestnpc|removequestnpc|export|givebooster]
   level:
     description: Öffnet den Levelpfad.
     usage: /level
 permissions:
+  jobcore.user:
+    description: Standardrechte fuer normale JobCore-Spieler.
+    default: true
+    children:
+      jobcore.command.config: true
+      jobcore.command.level: true
+      jobcore.menu.leaderboard: true
+      jobcore.quest.menu: true
+      jobcore.quest.accept: true
+      jobcore.quest.abandon: true
+      jobcore.quest.claim: true
   jobcore.admin:
     description: Erlaubt administrative JobCore-Befehle.
     default: op
+    children:
+      jobcore.command.info: true
+      jobcore.command.reload: true
+      jobcore.command.stats: true
+      jobcore.command.addxp: true
+      jobcore.command.setlevel: true
+      jobcore.command.debugxp: true
+      jobcore.command.spawnquestnpc: true
+      jobcore.command.removequestnpc: true
+      jobcore.command.export: true
+      jobcore.command.givebooster: true
   jobcore.config:
     description: Erlaubt das Umschalten der eigenen BossBar.
-    default: true
+    default: false
+    children:
+      jobcore.command.config: true
   jobcore.level:
     description: Erlaubt das Öffnen des Level-Menüs.
-    default: true
+    default: false
+    children:
+      jobcore.command.level: true
+  jobcore.command.config:
+    description: Erlaubt /jobcore config.
+    default: false
+  jobcore.command.level:
+    description: Erlaubt /level.
+    default: false
+  jobcore.menu.leaderboard:
+    description: Erlaubt die Bestenlisten im Level-Menue.
+    default: false
+  jobcore.quest.menu:
+    description: Erlaubt das Oeffnen des Quest-Menues.
+    default: false
+  jobcore.quest.accept:
+    description: Erlaubt das Annehmen von Quests.
+    default: false
+  jobcore.quest.abandon:
+    description: Erlaubt das Abbrechen aktiver Quests.
+    default: false
+  jobcore.quest.claim:
+    description: Erlaubt das Abgeben abgeschlossener Quests.
+    default: false
+  jobcore.command.info:
+    description: Erlaubt /jobcore info.
+    default: false
+  jobcore.command.reload:
+    description: Erlaubt /jobcore reload.
+    default: false
+  jobcore.command.stats:
+    description: Erlaubt /jobcore stats.
+    default: false
+  jobcore.command.addxp:
+    description: Erlaubt /jobcore addxp.
+    default: false
+  jobcore.command.setlevel:
+    description: Erlaubt /jobcore setlevel.
+    default: false
+  jobcore.command.debugxp:
+    description: Erlaubt /jobcore debugxp.
+    default: false
+  jobcore.command.spawnquestnpc:
+    description: Erlaubt /jobcore spawnquestnpc.
+    default: false
+  jobcore.command.removequestnpc:
+    description: Erlaubt /jobcore removequestnpc.
+    default: false
+  jobcore.command.export:
+    description: Erlaubt /jobcore export.
+    default: false
+  jobcore.command.givebooster:
+    description: Erlaubt /jobcore givebooster.
+    default: false
   customjobs.admin:
     description: Legacy-Permission für administrative JobCore-Befehle.
     default: false
@@ -38,4 +115,3 @@ permissions:
     default: false
     children:
       jobcore.level: true
-
