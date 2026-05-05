@@ -1,6 +1,5 @@
 package de.derbenson.jobcore;
 
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -34,10 +33,8 @@ public final class DebugManager {
     }
 
     public void sendXpDebug(final String message) {
-        final Component component = configManager.deserialize("<dark_gray>[<gold>XP-Debug<dark_gray>] <gray>" + message);
-
         if (consoleDebugEnabled) {
-            Bukkit.getConsoleSender().sendMessage(component);
+            Bukkit.getConsoleSender().sendMessage(configManager.getChatMessage("<dark_gray>[<gold>XP-Debug<dark_gray>] <gray>" + message));
         }
 
         for (final UUID playerUuid : Set.copyOf(playerDebuggers)) {
@@ -46,7 +43,7 @@ public final class DebugManager {
                 playerDebuggers.remove(playerUuid);
                 continue;
             }
-            player.sendMessage(component);
+            player.sendMessage(configManager.getChatMessage("<dark_gray>[<gold>XP-Debug<dark_gray>] <gray>" + message));
         }
     }
 }

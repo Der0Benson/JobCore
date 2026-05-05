@@ -132,7 +132,7 @@ menu:
       click-message: "<yellow>%job% ist noch ein Platzhalter und wird später freigeschaltet.</yellow>"
 
 messages:
-  prefix: "<gray>[<green>JobCore<gray>] "
+  prefix: "<bold><gradient:#EF3A45:#AE315E>ApexQuest ●</gradient></bold> "
   no-permission: "<red>Du hast dafür keine Berechtigung."
   player-only: "<red>Dieser Befehl ist nur im Spiel nutzbar."
   reloaded: "<green>Konfiguration und Job-Werte wurden neu geladen."

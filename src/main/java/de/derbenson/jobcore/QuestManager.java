@@ -322,7 +322,7 @@ public final class QuestManager {
         ));
 
         if (!quest.get().rewardMessage().isBlank()) {
-            player.sendMessage(configManager.deserialize(quest.get().rewardMessage(), Map.of(
+            player.sendMessage(configManager.getChatMessage(quest.get().rewardMessage(), Map.of(
                     "quest", quest.get().displayName(),
                     "job", configManager.getJobDisplayName(quest.get().job()),
                     "xp", String.valueOf(grantedXp),

@@ -188,7 +188,7 @@ public final class LevelMenuManager implements Listener {
         for (int index = jobs.size(); index < OVERVIEW_JOB_SLOTS.size() && (index - jobs.size()) < dummyJobs.size(); index++) {
             if (slot == OVERVIEW_JOB_SLOTS.get(index)) {
                 final DummyJobCard dummyJobCard = dummyJobs.get(index - jobs.size());
-                player.sendMessage(configManager.deserialize(dummyJobCard.clickMessage(), Map.of("job", dummyJobCard.displayName())));
+                player.sendMessage(configManager.getChatMessage(dummyJobCard.clickMessage(), Map.of("job", dummyJobCard.displayName())));
                 return;
             }
         }

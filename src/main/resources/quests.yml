@@ -1,8 +1,8 @@
 config-version: 3
 
 npc:
-  default-name: "<gold>Missionsmeister"
-  skin-name: ""
+  default-name: "<gold><bold>Questmeister</bold></gold>"
+  skin-name: "Amifog"
   menu-title: "Missionstafel"
   header-title: "<gold>Missionstafel</gold>"
   header-lore:

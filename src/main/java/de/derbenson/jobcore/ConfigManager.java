@@ -25,6 +25,8 @@ public final class ConfigManager {
     private static final int MAIN_CONFIG_VERSION = 3;
     private static final int QUEST_CONFIG_VERSION = 3;
     private static final int JOB_CONFIG_VERSION = 2;
+    private static final String DEFAULT_MESSAGE_PREFIX =
+            "<bold><gradient:#EF3A45:#AE315E>ApexQuest ●</gradient></bold> ";
     private static final String DEFAULT_BOSSBAR_TEMPLATE =
             "<green>%job% <gray>- Lv.<white>%level% <gray>- <white>%xp%/%needed%</white> <gray>(+%xpGained% XP)</gray>";
 
@@ -49,7 +51,8 @@ public final class ConfigManager {
         plugin.reloadConfig();
         this.configuration = plugin.getConfig();
         configuration.options().copyDefaults(true);
-        final boolean changed = migrateManagedConfiguration(configuration, MAIN_CONFIG_VERSION);
+        boolean changed = migrateManagedConfiguration(configuration, MAIN_CONFIG_VERSION);
+        changed |= migrateMessagePrefix(configuration);
         if (changed) {
             plugin.saveConfig();
         }
@@ -78,9 +81,16 @@ public final class ConfigManager {
     }
 
     public Component getMessage(final String path, final Map<String, String> placeholders, final String fallback) {
-        final String prefix = configuration.getString("messages.prefix", "");
         final String value = configuration.getString(path, fallback);
-        return miniMessage.deserialize(applyPlaceholders(prefix + value, placeholders));
+        return miniMessage.deserialize(applyPlaceholders(getMessagePrefix() + value, placeholders));
+    }
+
+    public Component getChatMessage(final String template) {
+        return getChatMessage(template, Map.of());
+    }
+
+    public Component getChatMessage(final String template, final Map<String, String> placeholders) {
+        return miniMessage.deserialize(applyPlaceholders(getMessagePrefix() + template, placeholders));
     }
 
     public Component deserialize(final String template) {
@@ -324,6 +334,28 @@ public final class ConfigManager {
             changed = true;
         }
         return changed;
+    }
+
+    private boolean migrateMessagePrefix(final ConfigurationSection configurationSection) {
+        final String prefix = configurationSection.getString("messages.prefix", "");
+        if (!isBuiltInDefaultPrefix(prefix)) {
+            return false;
+        }
+
+        configurationSection.set("messages.prefix", DEFAULT_MESSAGE_PREFIX);
+        return true;
+    }
+
+    private String getMessagePrefix() {
+        final String prefix = configuration.getString("messages.prefix", DEFAULT_MESSAGE_PREFIX);
+        return isBuiltInDefaultPrefix(prefix) ? DEFAULT_MESSAGE_PREFIX : prefix;
+    }
+
+    private boolean isBuiltInDefaultPrefix(final String prefix) {
+        return prefix == null
+                || prefix.isBlank()
+                || prefix.equals("<gray>[<green>JobCore<gray>] ")
+                || prefix.equals("<gray>[<green>JobCore</green><gray>] ");
     }
 
     private boolean repairConfigurationSection(final ConfigurationSection configurationSection) {

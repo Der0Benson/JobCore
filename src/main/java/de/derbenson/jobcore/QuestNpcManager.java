@@ -4,7 +4,10 @@ import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.event.NPCRightClickEvent;
 import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.api.npc.NPCRegistry;
+import net.citizensnpcs.trait.LookClose;
 import net.citizensnpcs.trait.SkinTrait;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -29,6 +32,9 @@ public final class QuestNpcManager implements Listener {
 
     private static final int UNKNOWN_NPC_ID = -1;
     private static final double REMOVE_RADIUS_BLOCKS = 16.0D;
+    private static final double LOOK_CLOSE_RANGE_BLOCKS = 24.0D;
+    private static final String DEFAULT_DISPLAY_NAME = "<gold><bold>Questmeister</bold></gold>";
+    private static final String DEFAULT_SKIN_NAME = "Amifog";
 
     private final JavaPlugin plugin;
     private final ConfigManager configManager;
@@ -98,7 +104,7 @@ public final class QuestNpcManager implements Listener {
 
     public boolean spawnQuestNpc(final Player player, final String rawName) {
         final String name = rawName == null || rawName.isBlank()
-                ? configManager.getQuestConfiguration().getString("npc.default-name", "<gold>Questmeister")
+                ? getConfiguredDisplayName()
                 : rawName;
         final Location location = player.getLocation().getBlock().getLocation().add(0.5D, 0.0D, 0.5D);
         final QuestNpcEntry entry = new QuestNpcEntry(
@@ -180,16 +186,18 @@ public final class QuestNpcManager implements Listener {
 
         final Location location = new Location(world, entry.x(), entry.y(), entry.z(), entry.yaw(), entry.pitch());
         final NPCRegistry registry = CitizensAPI.getNPCRegistry();
+        final String displayName = getEffectiveDisplayName(entry);
         NPC npc = entry.npcId() == UNKNOWN_NPC_ID ? null : registry.getById(entry.npcId());
         if (npc == null) {
-            npc = registry.createNPC(EntityType.PLAYER, toCitizensName(entry.displayName()));
+            npc = registry.createNPC(EntityType.PLAYER, toCitizensName(displayName));
         } else {
-            npc.setName(toCitizensName(entry.displayName()));
+            npc.setName(toCitizensName(displayName));
         }
 
         npc.setProtected(true);
         npc.setUseMinecraftAI(false);
         applySkin(npc, getEffectiveSkinName(entry));
+        applyLookClose(npc);
 
         if (npc.isSpawned()) {
             npc.teleport(location, PlayerTeleportEvent.TeleportCause.PLUGIN);
@@ -209,7 +217,7 @@ public final class QuestNpcManager implements Listener {
                 location.getZ(),
                 location.getYaw(),
                 location.getPitch(),
-                entry.displayName(),
+                displayName,
                 getEffectiveSkinName(entry)
         ));
     }
@@ -223,6 +231,19 @@ public final class QuestNpcManager implements Listener {
         skinTrait.setFetchDefaultSkin(false);
         skinTrait.setShouldUpdateSkins(true);
         skinTrait.setSkinName(skinName, true);
+    }
+
+    private void applyLookClose(final NPC npc) {
+        final LookClose lookClose = npc.getOrAddTrait(LookClose.class);
+        lookClose.lookClose(true);
+        lookClose.setRange(LOOK_CLOSE_RANGE_BLOCKS);
+        lookClose.setHeadOnly(false);
+        lookClose.setLinkedBody(true);
+        lookClose.setPerPlayer(false);
+        lookClose.setRandomLook(false);
+        lookClose.setRandomlySwitchTargets(false);
+        lookClose.setRealisticLooking(false);
+        lookClose.setTargetNPCs(false);
     }
 
     private boolean isQuestNpc(final NPC npc) {
@@ -274,7 +295,7 @@ public final class QuestNpcManager implements Listener {
                 section.getDouble("z"),
                 (float) section.getDouble("yaw", 0.0D),
                 (float) section.getDouble("pitch", 0.0D),
-                section.getString("name", "<gold>Questmeister"),
+                section.getString("name", DEFAULT_DISPLAY_NAME),
                 section.getString("skin-name", "")
         );
     }
@@ -306,16 +327,44 @@ public final class QuestNpcManager implements Listener {
     }
 
     private String getConfiguredSkinName() {
-        return configManager.getQuestConfiguration().getString("npc.skin-name", "").trim();
+        final String skinName = configManager.getQuestConfiguration().getString("npc.skin-name", DEFAULT_SKIN_NAME).trim();
+        return skinName.isBlank() || isBuiltInDefaultSkinName(skinName) ? DEFAULT_SKIN_NAME : skinName;
+    }
+
+    private String getConfiguredDisplayName() {
+        final String displayName = configManager.getQuestConfiguration().getString("npc.default-name", DEFAULT_DISPLAY_NAME).trim();
+        return displayName.isBlank() || isBuiltInDefaultDisplayName(displayName) ? DEFAULT_DISPLAY_NAME : displayName;
+    }
+
+    private String getEffectiveDisplayName(final QuestNpcEntry entry) {
+        final String displayName = entry.displayName().trim();
+        return displayName.isBlank() || isBuiltInDefaultDisplayName(displayName) ? getConfiguredDisplayName() : entry.displayName();
+    }
+
+    private boolean isBuiltInDefaultDisplayName(final String displayName) {
+        return displayName.equals("Missionsmeister")
+                || displayName.equals("<gold>Missionsmeister")
+                || displayName.equals("Questmeister")
+                || displayName.equals("<gold>Questmeister");
     }
 
     private String getEffectiveSkinName(final QuestNpcEntry entry) {
-        return entry.skinName().isBlank() ? getConfiguredSkinName() : entry.skinName();
+        final String skinName = entry.skinName().trim();
+        return skinName.isBlank() || isBuiltInDefaultSkinName(skinName) ? getConfiguredSkinName() : entry.skinName();
+    }
+
+    private boolean isBuiltInDefaultSkinName(final String skinName) {
+        return skinName.equalsIgnoreCase("Flooper69")
+                || skinName.equalsIgnoreCase(DEFAULT_SKIN_NAME);
     }
 
     private String toCitizensName(final String displayName) {
-        final String plain = PlainTextComponentSerializer.plainText().serialize(configManager.deserialize(displayName));
-        return plain.isBlank() ? "Questmeister" : plain;
+        final Component component = configManager.deserialize(displayName);
+        final String plain = PlainTextComponentSerializer.plainText().serialize(component);
+        if (plain.isBlank()) {
+            return LegacyComponentSerializer.legacySection().serialize(configManager.deserialize(DEFAULT_DISPLAY_NAME));
+        }
+        return LegacyComponentSerializer.legacySection().serialize(component);
     }
 
     private record QuestNpcEntry(

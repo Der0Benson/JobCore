@@ -473,7 +473,7 @@ public final class JobManager {
 
         final String message = applyRewardPlaceholders(player, job, level, reward.value());
         if (!message.isBlank()) {
-            player.sendMessage(configManager.deserialize(message));
+            player.sendMessage(configManager.getChatMessage(message));
         }
     }
 

@@ -254,11 +254,11 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
     private boolean handleRootCommand(final CommandSender sender) {
         boolean sentMessage = false;
         if (sender instanceof Player && hasConfigPermission(sender)) {
-            sender.sendMessage(configManager.deserialize("<gray>Nutze <white>/jobcore config</white><gray>, um deine BossBar an- oder auszuschalten.</gray>"));
+            sender.sendMessage(configManager.getChatMessage("<gray>Nutze <white>/jobcore config</white><gray>, um deine BossBar an- oder auszuschalten.</gray>"));
             sentMessage = true;
         }
         if (hasAnyCommandPermission(sender)) {
-            sender.sendMessage(configManager.deserialize("<gray>Admin: <white>/jobcore info</white><gray>, <white>/jobcore reload</white><gray>, <white>/jobcore stats</white><gray>, <white>/jobcore addxp</white><gray>, <white>/jobcore setlevel</white><gray>, <white>/jobcore debugxp</white><gray>, <white>/jobcore spawnquestnpc</white><gray>, <white>/jobcore removequestnpc</white><gray>, <white>/jobcore export</white></gray>"));
+            sender.sendMessage(configManager.getChatMessage("<gray>Admin: <white>/jobcore info</white><gray>, <white>/jobcore reload</white><gray>, <white>/jobcore stats</white><gray>, <white>/jobcore addxp</white><gray>, <white>/jobcore setlevel</white><gray>, <white>/jobcore debugxp</white><gray>, <white>/jobcore spawnquestnpc</white><gray>, <white>/jobcore removequestnpc</white><gray>, <white>/jobcore export</white></gray>"));
             sentMessage = true;
         }
         if (!sentMessage) {
@@ -321,7 +321,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             bossBarManager.hide(player);
         }
 
-        player.sendMessage(configManager.deserialize(
+        player.sendMessage(configManager.getChatMessage(
                 enabled
                         ? "<green>Deine Job-BossBar wurde aktiviert.</green>"
                         : "<yellow>Deine Job-BossBar wurde deaktiviert.</yellow>"
@@ -355,6 +355,9 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             configManager.reload();
             jobManager.reload();
             questManager.reload();
+            if (questNpcManager != null) {
+                questNpcManager.load();
+            }
             cleanupExpiredQuestProgressAsync("Reload");
             leaderboardManager.invalidate();
             sender.sendMessage(configManager.getMessage("messages.reloaded"));
@@ -364,7 +367,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         } catch (final Exception exception) {
             getLogger().severe("Fehler beim Reload von JobCore: " + exception.getMessage());
             exception.printStackTrace();
-            sender.sendMessage(configManager.deserialize("<red>Reload fehlgeschlagen. Details stehen in der Konsole.</red>"));
+            sender.sendMessage(configManager.getChatMessage("<red>Reload fehlgeschlagen. Details stehen in der Konsole.</red>"));
         }
         return true;
     }
@@ -376,7 +379,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         }
 
         if (args.length < 2) {
-            sender.sendMessage(configManager.deserialize("<red>Nutze /jobcore stats <spieler>.</red>"));
+            sender.sendMessage(configManager.getChatMessage("<red>Nutze /jobcore stats <spieler>.</red>"));
             return true;
         }
 
@@ -386,17 +389,17 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             return true;
         }
 
-        sender.sendMessage(configManager.deserialize("<gray>Lade gespeicherte Daten für <white>%player%</white>...</gray>", Map.of("player", args[1])));
+        sender.sendMessage(configManager.getChatMessage("<gray>Lade gespeicherte Daten für <white>%player%</white>...</gray>", Map.of("player", args[1])));
         playerDataManager.findPlayerAsync(args[1]).whenComplete((lookupResult, throwable) -> runSync(() -> {
             if (throwable != null) {
-                sender.sendMessage(configManager.deserialize("<red>Spielerdaten konnten nicht geladen werden. Details stehen in der Konsole.</red>"));
+                sender.sendMessage(configManager.getChatMessage("<red>Spielerdaten konnten nicht geladen werden. Details stehen in der Konsole.</red>"));
                 getLogger().severe("Offline-Stats fehlgeschlagen: " + throwable.getMessage());
                 throwable.printStackTrace();
                 return;
             }
 
             if (lookupResult.isEmpty()) {
-                sender.sendMessage(configManager.deserialize("<red>Spieler <white>%player%</white> wurde in den gespeicherten Daten nicht gefunden.</red>", Map.of("player", args[1])));
+                sender.sendMessage(configManager.getChatMessage("<red>Spieler <white>%player%</white> wurde in den gespeicherten Daten nicht gefunden.</red>", Map.of("player", args[1])));
                 return;
             }
 
@@ -412,19 +415,19 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         }
 
         if (args.length < 4) {
-            sender.sendMessage(configManager.deserialize("<red>Nutze /jobcore addxp <spieler> <job> <menge>.</red>"));
+            sender.sendMessage(configManager.getChatMessage("<red>Nutze /jobcore addxp <spieler> <job> <menge>.</red>"));
             return true;
         }
 
         final Optional<Job> job = Job.fromId(args[2]);
         if (job.isEmpty()) {
-            sender.sendMessage(configManager.deserialize("<red>Unbekannter Job: <white>%job%</white>.</red>", Map.of("job", args[2])));
+            sender.sendMessage(configManager.getChatMessage("<red>Unbekannter Job: <white>%job%</white>.</red>", Map.of("job", args[2])));
             return true;
         }
 
         final Integer amount = parsePositiveInt(args[3]);
         if (amount == null) {
-            sender.sendMessage(configManager.deserialize("<red>Die XP-Menge muss eine positive Zahl sein.</red>"));
+            sender.sendMessage(configManager.getChatMessage("<red>Die XP-Menge muss eine positive Zahl sein.</red>"));
             return true;
         }
 
@@ -433,7 +436,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             final int granted = jobManager.grantDirectExperience(onlineTarget, job.get(), amount);
             playerDataManager.savePlayerData(onlineTarget.getUniqueId());
             leaderboardManager.invalidate();
-            sender.sendMessage(configManager.deserialize(
+            sender.sendMessage(configManager.getChatMessage(
                     "<green>%player%</green><gray> erhielt <white>%xp%</white> direkte XP für <white>%job%</white>.</gray>",
                     Map.of(
                             "player", onlineTarget.getName(),
@@ -444,7 +447,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             return true;
         }
 
-        sender.sendMessage(configManager.deserialize("<gray>Lade gespeicherte Daten für <white>%player%</white>...</gray>", Map.of("player", args[1])));
+        sender.sendMessage(configManager.getChatMessage("<gray>Lade gespeicherte Daten für <white>%player%</white>...</gray>", Map.of("player", args[1])));
         playerDataManager.findPlayerAsync(args[1])
                 .thenCompose(lookupResult -> {
                     if (lookupResult.isEmpty()) {
@@ -458,19 +461,19 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
                 })
                 .whenComplete((result, throwable) -> runSync(() -> {
                     if (throwable != null) {
-                        sender.sendMessage(configManager.deserialize("<red>Offline-XP konnten nicht gespeichert werden. Details stehen in der Konsole.</red>"));
+                        sender.sendMessage(configManager.getChatMessage("<red>Offline-XP konnten nicht gespeichert werden. Details stehen in der Konsole.</red>"));
                         getLogger().severe("Offline-XP fehlgeschlagen: " + throwable.getMessage());
                         throwable.printStackTrace();
                         return;
                     }
 
                     if (!result.found()) {
-                        sender.sendMessage(configManager.deserialize("<red>Spieler <white>%player%</white> wurde in den gespeicherten Daten nicht gefunden.</red>", Map.of("player", result.input())));
+                        sender.sendMessage(configManager.getChatMessage("<red>Spieler <white>%player%</white> wurde in den gespeicherten Daten nicht gefunden.</red>", Map.of("player", result.input())));
                         return;
                     }
 
                     leaderboardManager.invalidate();
-                    sender.sendMessage(configManager.deserialize(
+                    sender.sendMessage(configManager.getChatMessage(
                             "<green>%player%</green><gray> erhielt <white>%xp%</white> direkte XP für <white>%job%</white>.</gray>",
                             Map.of(
                                     "player", result.playerName(),
@@ -489,19 +492,19 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         }
 
         if (args.length < 4) {
-            sender.sendMessage(configManager.deserialize("<red>Nutze /jobcore setlevel <spieler> <job> <level>.</red>"));
+            sender.sendMessage(configManager.getChatMessage("<red>Nutze /jobcore setlevel <spieler> <job> <level>.</red>"));
             return true;
         }
 
         final Optional<Job> job = Job.fromId(args[2]);
         if (job.isEmpty()) {
-            sender.sendMessage(configManager.deserialize("<red>Unbekannter Job: <white>%job%</white>.</red>", Map.of("job", args[2])));
+            sender.sendMessage(configManager.getChatMessage("<red>Unbekannter Job: <white>%job%</white>.</red>", Map.of("job", args[2])));
             return true;
         }
 
         final Integer level = parseNonNegativeInt(args[3]);
         if (level == null) {
-            sender.sendMessage(configManager.deserialize("<red>Das Level muss eine Zahl von 0 bis %max% sein.</red>", Map.of("max", String.valueOf(jobManager.getMaxLevel()))));
+            sender.sendMessage(configManager.getChatMessage("<red>Das Level muss eine Zahl von 0 bis %max% sein.</red>", Map.of("max", String.valueOf(jobManager.getMaxLevel()))));
             return true;
         }
 
@@ -511,7 +514,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             jobManager.setLevel(onlineTarget, job.get(), targetLevel);
             playerDataManager.savePlayerData(onlineTarget.getUniqueId());
             leaderboardManager.invalidate();
-            sender.sendMessage(configManager.deserialize(
+            sender.sendMessage(configManager.getChatMessage(
                     "<green>%player%</green><gray> wurde in <white>%job%</white> auf Level <white>%level%</white> gesetzt.</gray>",
                     Map.of(
                             "player", onlineTarget.getName(),
@@ -522,7 +525,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             return true;
         }
 
-        sender.sendMessage(configManager.deserialize("<gray>Lade gespeicherte Daten für <white>%player%</white>...</gray>", Map.of("player", args[1])));
+        sender.sendMessage(configManager.getChatMessage("<gray>Lade gespeicherte Daten für <white>%player%</white>...</gray>", Map.of("player", args[1])));
         playerDataManager.findPlayerAsync(args[1])
                 .thenCompose(lookupResult -> {
                     if (lookupResult.isEmpty()) {
@@ -536,19 +539,19 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
                 })
                 .whenComplete((result, throwable) -> runSync(() -> {
                     if (throwable != null) {
-                        sender.sendMessage(configManager.deserialize("<red>Offline-Level konnte nicht gespeichert werden. Details stehen in der Konsole.</red>"));
+                        sender.sendMessage(configManager.getChatMessage("<red>Offline-Level konnte nicht gespeichert werden. Details stehen in der Konsole.</red>"));
                         getLogger().severe("Offline-Level fehlgeschlagen: " + throwable.getMessage());
                         throwable.printStackTrace();
                         return;
                     }
 
                     if (!result.found()) {
-                        sender.sendMessage(configManager.deserialize("<red>Spieler <white>%player%</white> wurde in den gespeicherten Daten nicht gefunden.</red>", Map.of("player", result.input())));
+                        sender.sendMessage(configManager.getChatMessage("<red>Spieler <white>%player%</white> wurde in den gespeicherten Daten nicht gefunden.</red>", Map.of("player", result.input())));
                         return;
                     }
 
                     leaderboardManager.invalidate();
-                    sender.sendMessage(configManager.deserialize(
+                    sender.sendMessage(configManager.getChatMessage(
                             "<green>%player%</green><gray> wurde in <white>%job%</white> auf Level <white>%level%</white> gesetzt.</gray>",
                             Map.of(
                                     "player", result.playerName(),
@@ -567,12 +570,12 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         }
 
         if (args.length < 2 || (!args[1].equalsIgnoreCase("on") && !args[1].equalsIgnoreCase("off"))) {
-            sender.sendMessage(configManager.deserialize("<red>Nutze /jobcore debugxp <on|off>.</red>"));
+            sender.sendMessage(configManager.getChatMessage("<red>Nutze /jobcore debugxp <on|off>.</red>"));
             return true;
         }
 
         final boolean enabled = debugManager.setDebugEnabled(sender, args[1].equalsIgnoreCase("on"));
-        sender.sendMessage(configManager.deserialize(
+        sender.sendMessage(configManager.getChatMessage(
                 enabled
                         ? "<green>XP-Debug wurde aktiviert.</green>"
                         : "<yellow>XP-Debug wurde deaktiviert.</yellow>"
@@ -595,16 +598,16 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
                 ? String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length))
                 : "";
         if (questNpcManager == null) {
-            player.sendMessage(configManager.deserialize("<red>Citizens ist nicht installiert oder nicht aktiv.</red>"));
+            player.sendMessage(configManager.getChatMessage("<red>Citizens ist nicht installiert oder nicht aktiv.</red>"));
             return true;
         }
 
         if (!questNpcManager.spawnQuestNpc(player, customName)) {
-            player.sendMessage(configManager.deserialize("<red>Quest-NPC konnte nicht gespawnt werden.</red>"));
+            player.sendMessage(configManager.getChatMessage("<red>Quest-NPC konnte nicht gespawnt werden.</red>"));
             return true;
         }
 
-        player.sendMessage(configManager.deserialize("<green>Quest-NPC gespawnt.</green>"));
+        player.sendMessage(configManager.getChatMessage("<green>Quest-NPC gespawnt.</green>"));
         return true;
     }
 
@@ -620,16 +623,16 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
         }
 
         if (questNpcManager == null) {
-            player.sendMessage(configManager.deserialize("<red>Citizens ist nicht installiert oder nicht aktiv.</red>"));
+            player.sendMessage(configManager.getChatMessage("<red>Citizens ist nicht installiert oder nicht aktiv.</red>"));
             return true;
         }
 
         if (!questNpcManager.removeNearestQuestNpc(player)) {
-            player.sendMessage(configManager.deserialize("<red>Kein Quest-NPC in deiner Nähe gefunden.</red>"));
+            player.sendMessage(configManager.getChatMessage("<red>Kein Quest-NPC in deiner Nähe gefunden.</red>"));
             return true;
         }
 
-        player.sendMessage(configManager.deserialize("<yellow>Quest-NPC entfernt.</yellow>"));
+        player.sendMessage(configManager.getChatMessage("<yellow>Quest-NPC entfernt.</yellow>"));
         return true;
     }
 
@@ -639,7 +642,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             return true;
         }
 
-        sender.sendMessage(configManager.deserialize("<gray>Export wird erstellt...</gray>"));
+        sender.sendMessage(configManager.getChatMessage("<gray>Export wird erstellt...</gray>"));
         CompletableFuture.supplyAsync(() -> {
             try {
                 return exportManager.exportSnapshot();
@@ -651,11 +654,11 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
                 final Throwable cause = throwable.getCause() == null ? throwable : throwable.getCause();
                 getLogger().severe("Export fehlgeschlagen: " + cause.getMessage());
                 cause.printStackTrace();
-                sender.sendMessage(configManager.deserialize("<red>Export fehlgeschlagen. Details stehen in der Konsole.</red>"));
+                sender.sendMessage(configManager.getChatMessage("<red>Export fehlgeschlagen. Details stehen in der Konsole.</red>"));
                 return;
             }
 
-            sender.sendMessage(configManager.deserialize(
+            sender.sendMessage(configManager.getChatMessage(
                     "<green>Export erstellt.</green> <gray>%count% Spieler wurden nach <white>%path%</white><gray> geschrieben.</gray>",
                     Map.of(
                             "count", String.valueOf(result.playerCount()),
@@ -849,8 +852,8 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
     }
 
     private void sendStats(final CommandSender sender, final String playerName, final PlayerJobData data) {
-        sender.sendMessage(configManager.deserialize("<gray>Job-Status von <white>%player%</white>:</gray>", Map.of("player", playerName)));
-        sender.sendMessage(configManager.deserialize("<gray>BossBar: <white>%state%</white>", Map.of(
+        sender.sendMessage(configManager.getChatMessage("<gray>Job-Status von <white>%player%</white>:</gray>", Map.of("player", playerName)));
+        sender.sendMessage(configManager.getChatMessage("<gray>BossBar: <white>%state%</white>", Map.of(
                 "state", data.isBossBarEnabled() ? "aktiviert" : "deaktiviert"
         )));
 
@@ -859,7 +862,7 @@ public final class JobCore extends JavaPlugin implements CommandExecutor, TabCom
             final long neededXp = jobManager.getXpForNextLevel(progress.getLevel());
             final String xpText = jobManager.isMaxLevel(progress.getLevel()) ? "MAX" : String.valueOf(progress.getXp());
             final String neededText = jobManager.isMaxLevel(progress.getLevel()) ? "MAX" : String.valueOf(neededXp);
-            sender.sendMessage(configManager.deserialize(
+            sender.sendMessage(configManager.getChatMessage(
                     "<gray>%job%: <white>Lv.%level%</white> <gray>- <white>%xp%/%needed%</white></gray>",
                     Map.of(
                             "job", configManager.getJobDisplayName(job),
